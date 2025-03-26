@@ -1,5 +1,5 @@
 google-cloud
 numpy
-PIL
+pillow
 python-dateutil
 requests
