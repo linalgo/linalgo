@@ -25,10 +25,17 @@ class TestTransformers(unittest.TestCase):
     ]
 
     def test_sequence_to_sequence(self):
+
+        def tokenize(text):
+            idx = 0
+            for token in text.split():
+                yield idx, token
+                idx += len(token) + 1
+                
         task = Task(name="test")
         task.documents.append(self.doc)
         task.annotations.append(self.annotations)
-        t = Sequence2SequenceTransformer(tokenize_fn=str.split)
+        t = Sequence2SequenceTransformer(tokenize_fn=tokenize)
         in_seqs, out_seqs = t.transform(task)
         self.assertEqual(in_seqs, [self.doc.content.split()])
         self.assertEqual(out_seqs, [["g", "u", "u", "p"]])

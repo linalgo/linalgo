@@ -193,8 +193,7 @@ class Sequence2SequenceTransformer(Transformer):
         input_sequences, output_sequences = [], []
         for doc in task.documents:
             in_seq, out_seq = [], []
-            idx = 0
-            for token in self.tokenize(doc.content):
+            for idx, token in self.tokenize(doc.content):
                 start, end = idx, idx + len(token) - 1
                 labels = []
                 for a in doc.annotations:
