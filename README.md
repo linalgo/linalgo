@@ -1,4 +1,4 @@
-![main](https://github.com/github/docs/actions/workflows/main.yml/badge.svg)
+![main](https://github.com/linalgo/linalgo/actions/workflows/main.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 # Linalgo W3C Web Annotation Library
