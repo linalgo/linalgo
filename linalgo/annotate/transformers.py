@@ -198,8 +198,8 @@ class Sequence2SequenceTransformer(Transformer):
                 start, end = idx, idx + len(token) - 1
                 labels = []
                 for a in doc.annotations:
-                    contains_start = start >= a.start and end <= a.end
-                    contains_end = end >= a.start and end <= a.end
+                    contains_start = a.start <= start <= a.end
+                    contains_end = a.start <= end <= a.end
                     if contains_start or contains_end:
                         if self.keep == "body":
                             labels.append(a.body)
