@@ -1,5 +1,5 @@
 """Retrieve annotated data from BigQuery."""
-from google.cloud import bigquery
+from google.cloud import bigquery  # pylint: disable=import-error
 
 from linalgo.annotate.models import Annotation, Document
 
