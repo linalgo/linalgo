@@ -195,19 +195,22 @@ class Sequence2SequenceTransformer(Transformer):
             in_seq, out_seq = [], []
             idx = 0
             for token in self.tokenize(doc.content):
-                start, end = idx, idx + len(token)
+                start, end = idx, idx + len(token) - 1
                 labels = []
                 for a in doc.annotations:
-                    contains_start = a.start >= start and a.start <= end
-                    contains_end = a.end >= start and a.end <= end
+                    contains_start = start >= a.start and end <= a.end
+                    contains_end = end >= a.start and end <= a.end
                     if contains_start or contains_end:
                         if self.keep == "body":
                             labels.append(a.body)
                         elif self.keep == "entity":
                             labels.append(a.entity.name)
+                idx += len(token)
                 in_seq.append(token)
                 if self.strategy == "majority":
+                    print(labels)
                     labels = self.get_majority(labels)
+                    print(labels)
                 elif self.strategy == "all":
                     labels = tuple(set(labels))
                 out_seq.append(labels)

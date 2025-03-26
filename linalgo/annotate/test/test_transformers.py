@@ -16,11 +16,11 @@ class TestTransformers(unittest.TestCase):
         Annotation(body="g", document=doc, annotator='A2', start=0, end=5),
         Annotation(body="u", document=doc, annotator='A2', start=7, end=9),
         Annotation(body="u", document=doc, annotator='A2', start=11, end=13),
-        Annotation(body="x", document=doc, annotator='A2', start=15, end=18),
-        Annotation(body="x", document=doc, annotator='A2', start=0, end=5),
-        Annotation(body="x", document=doc, annotator='A2', start=7, end=9),
-        Annotation(body="x", document=doc, annotator='A2', start=11, end=13),
-        Annotation(body="x", document=doc, annotator='A2', start=15, end=18),
+        Annotation(body="p", document=doc, annotator='A2', start=15, end=18),
+        Annotation(body="x", document=doc, annotator='A3', start=0, end=5),
+        Annotation(body="x", document=doc, annotator='A3', start=7, end=9),
+        Annotation(body="x", document=doc, annotator='A3', start=11, end=13),
+        Annotation(body="x", document=doc, annotator='A3', start=15, end=18),
         
     ]
 
