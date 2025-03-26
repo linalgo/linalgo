@@ -1,24 +1,33 @@
-![CircleCI](https://circleci.com/gh/linalgo/annotate-sdk.svg?style=svg&circle-token=ef87d896267f3200b095b04954eb8f382ccbd884)
+![main](https://github.com/linalgo/linalgo/actions/workflows/main.yml/badge.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-# linalgo-annotate
+# Linalgo W3C Web Annotation Library
 
-linalgo-annotate is a python module for natural language processing compatible with the 
-[web annotation data model](https://www.w3.org/TR/annotation-model/)
+Linalgo is a Python module to help Machine Learning team create and curate 
+datasets for Natural Language Processing. It tries to follow
+the W3C [Web Annotation Data Model](https://www.w3.org/TR/annotation-model/) and
+to provides a powerful system to add metadata to most commonly used text and
+image formats: TXT, PDF, HTML, etc.
 
 ## Documentation
 
-The documentation is available [here](https://linalgo.github.io/annotate-sdk/)
+The documentation is available at [https://linalgo.github.io/linalgo](https://linalgo.github.io/linalgo/)
 
-## installation 
+## Installation 
 
 ```
-git clone https://github.com/linalgo/annotate-sdk.git
-cd linalgo-annotate
-pip install .
+pip install linalgo
 ```
 
-## test
+## Test
 
 ```
 pytest
 ```
+
+# Storing Annotation Data
+
+By default, linalgo stores annotations on a dedicated hub at https://hub.linalgo.com.
+There are also connectors to retrieve data from Google BigQuery.
+
+

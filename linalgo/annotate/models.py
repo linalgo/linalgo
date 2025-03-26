@@ -300,7 +300,6 @@ class Annotation(RegistryMixin, FromIdFactoryMixin, AnnotationFactory):
         if auto_track:
             self.document.annotations.add(self)
         self.target = self.get('target', TargetFactory.factory(target))
-        print("target", self.target)
         if start is not None:
             self.target.selector[0].start_offset = start
         if end is not None:

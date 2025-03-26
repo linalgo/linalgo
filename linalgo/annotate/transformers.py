@@ -1,9 +1,9 @@
 # pylint: disable=too-few-public-methods
 """A collection of classes to transform an annotation task into as ML task"""
-from typing import List, Iterable
+from typing import List, Iterable, Union
 from collections import Counter
 
-from .models import Entity, Task
+from .models import Document, Entity, Task
 
 
 class Transformer:
@@ -167,11 +167,14 @@ class Sequence2SequenceTransformer(Transformer):
         majority: str
             The majority item.
         """
+        if len(items) < 1:
+            return None
         c = Counter(items)
         majority = c.most_common(1)
         return majority[0][0]
 
-    def transform(self, task: Task):
+    def transform(self, task: Union[Task, Iterable[Document]]):
+        # pylint: disable=too-many-locals
         """Tranforms a task into a sequence-to-sequence classification problem.
 
         Parameters
@@ -189,16 +192,18 @@ class Sequence2SequenceTransformer(Transformer):
         if self.strategy not in ('all', 'majority'):
             raise NotImplementedError(
                 f'{self.strategy} is not a valid strategy.')
-
+        documents = task
+        if isinstance(task, Task):
+            documents = task.documents
         input_sequences, output_sequences = [], []
-        for doc in task.documents:
+        for doc in documents:
             in_seq, out_seq = [], []
             for idx, token in self.tokenize(doc.content):
                 start, end = idx, idx + len(token) - 1
                 labels = []
                 for a in doc.annotations:
-                    contains_start = a.start <= start <= a.end
-                    contains_end = a.start <= end <= a.end
+                    contains_start = a.start <= start <= a.end - 1
+                    contains_end = a.start <= end <= a.end - 1
                     if contains_start or contains_end:
                         if self.keep == "body":
                             labels.append(a.body)
@@ -215,3 +220,12 @@ class Sequence2SequenceTransformer(Transformer):
             output_sequences.append(out_seq)
 
         return input_sequences, output_sequences
+
+
+__all__ = [
+    'Transformer',
+    'BinaryTransformer',
+    'MultiClassTransformer',
+    'MultiLabelTransformer',
+    'Sequence2SequenceTransformer'
+]
