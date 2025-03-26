@@ -12,9 +12,26 @@ Selector = Union[BoundingBox]
 
 
 class XPathSelector:
+    """W3C XPathSelector.
 
-    def __init__(self, start_container: str, end_container: str,
-                 start_offset: int, end_offset: int):
+    See: `https://www.w3.org/TR/annotation-model/#xpath-selector`
+
+    Parameters
+    ----------
+    start_container : str
+    end_container : str
+    start_offset : int
+    end_offset : int
+
+    """
+
+    def __init__(
+        self,
+        start_container: str,
+        end_container: str,
+        start_offset: int,
+        end_offset: int
+    ):
         self.start_container = start_container
         self.end_container = end_container
         self.start_offset = start_offset
@@ -22,32 +39,42 @@ class XPathSelector:
 
 
 class SelectorFactory:
+    """A class to create `Selector` objects from different formats."""
 
     @staticmethod
     def factory(d: Dict):
         if type(d) == dict:
-          if d == {}:
-              return d
-          if 'x' in d:
-              v = Vertex(d['x'], d['y'])
-              return BoundingBox.fromVertex(
-                  v, height=d['height'], width=d['width'])
-          elif 'startOffset' in d:
-              return XPathSelector(
-                  start_container=d['startContainer'],
-                  end_container=d['endContainer'],
-                  start_offset=d['startOffset'],
-                  end_offset=d['endOffset']
-            )
+            if d == {}:
+                return d
+            if 'x' in d:
+                v = Vertex(d['x'], d['y'])
+                return BoundingBox.fromVertex(
+                    v, height=d['height'], width=d['width'])
+            elif 'startOffset' in d:
+                return XPathSelector(
+                    start_container=d['startContainer'],
+                    end_container=d['endContainer'],
+                    start_offset=d['startOffset'],
+                    end_offset=d['endOffset']
+                )
         elif type(d) == XPathSelector:
+            return d
+        elif type(d) == BoundingBox:
             return d
         raise Exception(f"No factory found for {type(d)}")
 
 
 class TargetFactory:
+    """A class to create W3C Target objects from different formats."""
 
     @staticmethod
     def factory(data):
+        """Factory method for W3C Target.
+
+        Parameters
+        ----------
+        data : Target | str | dict | None
+        """
         if str(type(data)) == str(Target):
             return data
         elif type(data) == str:
@@ -55,10 +82,13 @@ class TargetFactory:
             return TargetFactory.from_dict(d)
         elif type(data) == dict:
             return TargetFactory.from_dict(data)
+        elif data is None:
+            return Target({})
         raise NotImplementedError(f'No factory found for type {type(data)}')
 
     @staticmethod
     def from_dict(d: Dict):
+        """Creates a W3C target from a dictionary."""
         if d == {}:
             return Target(source=None, selector=[])
         return Target(
@@ -68,9 +98,21 @@ class TargetFactory:
 
 
 class Target(TargetFactory):
+    """W3C Target object.
 
-    def __init__(self, source: 'Document' = None,
-                 selector: Iterable[Selector] = []):
+    See: https://www.w3.org/TR/annotation-model/#bodies-and-targets
+
+    Parameters
+    ----------
+    source : Document
+    selector : Selector
+    """
+
+    def __init__(
+        self,
+        source: 'Document' = None,
+        selector: Iterable[Selector] = []
+    ):
         self.source = source
         self.selector = [SelectorFactory.factory(s) for s in selector]
 
@@ -81,8 +123,10 @@ class Target(TargetFactory):
 
 
 class RegistryMixin:
+    """The registry makes sure that each object has a unique id."""
 
     def __new__(cls, *args, **kwargs):
+        """Return a unique object based on the id."""
         unique_id = kwargs.get('unique_id', str(uuid.uuid4()))
         unique_id = kwargs.get('id', unique_id)
         if not hasattr(cls, '_registry'):
@@ -96,6 +140,7 @@ class RegistryMixin:
             return obj
 
     def register(self):
+        """Register the object in the gloabl class registry."""
         self._registry[self.id] = self
 
     def setattr(self, name, value):
@@ -109,11 +154,17 @@ class RegistryMixin:
         elif value not in (None, [], set()):
             self.__setattr__(name, value)
             return True
-        # logging.info(f'Attribute {name} of {self} was not overridden')
         return False
 
 
 class FromIdFactoryMixin:
+    """Enable object instanciation using just a unique id.
+
+    In order to sync the objects between the remote repo and the local
+    version, object of the same class that share the same unique ID should
+    point to the same instance. This is achieved by having a global registry
+    that enforces the singleton pattern for each class/id combination.
+    """
 
     @classmethod
     def factory(cls, arg):
@@ -128,9 +179,11 @@ class FromIdFactoryMixin:
 
 
 class AnnotationFactory:
+    """A Factory to create Annotation objects from different formats."""
 
     @staticmethod
     def from_dict(d: Dict):
+        """Creates a W3C Web Annotation from a dictionary."""
         return Annotation(
             unique_id=d['id'],
             entity=Entity(unique_id=d['entity']),
@@ -141,12 +194,13 @@ class AnnotationFactory:
             target=Target.factory(d['target']),
             created=d['created']
         )
-    
+
     @staticmethod
     def from_bq_row(row):
+        """Create a W3C Annotation from a BigQuery row."""
         return Annotation(
-            unique_id=row.id, 
-            entity=row.entity_id, 
+            unique_id=row.id,
+            entity=row.entity_id,
             document=row.document_id,
             body=row.body,
             annotator=row.annotator_id,
@@ -159,14 +213,44 @@ class AnnotationFactory:
 class Annotation(RegistryMixin, FromIdFactoryMixin, AnnotationFactory):
     """
     Annotation class compatible with the W3C annotation data model.
+
+    Parameters
+    ----------
+    id: uuid
+        The unique identifier of the annotation
+    entity: Entity
+        The entity that is being annotated
+    document: Document
+        The document that is being annotated
+    body: str
+        The body of the annotation
+    annotator: Annotator
+        The annotator that created the annotation
+    task: Task
+        The task that the annotation belongs to
+    created: datetime
+        The date and time the annotation was created
+    target: Target
+        The target of the annotation
+    score: float
+        The score of the annotation
+    auto_track: bool
+        Whether to automatically track the annotation in the document
     """
 
     def __init__(
-            self, entity: 'Entity'=None, document: 'Document'=None, 
-            body: str = None, annotator: 'Annotator' = None, 
-            task: 'Task' = None, created=None, target: Target = None, 
-            score: float = None, auto_track=True, **kwargs
-        ):
+        self,
+        entity: 'Entity' = None,
+        document: 'Document' = None,
+        body: str = None,
+        annotator: 'Annotator' = None,
+        task: 'Task' = None,
+        created=None,
+        target: Target = None,
+        score: float = None,
+        auto_track=True,
+        **kwargs
+    ):
         if 'entity_id' in kwargs:
             entity = kwargs['entity_id']
         self.setattr('entity', Entity.factory(entity))
@@ -187,14 +271,21 @@ class Annotation(RegistryMixin, FromIdFactoryMixin, AnnotationFactory):
         if created is None:
             created = datetime.now()
         elif isinstance(created, str):
-            created = datetime.fromisoformat(created)
+            created = datetime.fromisoformat(created.replace('Z', '+00:00'))
         self.setattr('created', created)
         self.register()
 
     def __repr__(self):
         return f'Annotation::{self.entity.name or self.entity.id}'
-    
+
     def get_context(self, context_len):
+        """Returns the context of the annotation.
+
+        Parameters
+        ----------
+        context_len : int
+            The length of the context to return.
+        """
         xpath = self.target.selector[0]
         start = max(0, xpath.start_offset - context_len)
         end = min(xpath.end_offset + context_len, len(self.document.content))
@@ -202,15 +293,24 @@ class Annotation(RegistryMixin, FromIdFactoryMixin, AnnotationFactory):
 
     def copy(self):
         target = self.target.copy()
-        return Annotation(unique_id=str(uuid.uuid4()), entity=self.entity,
-                document=self.document, task=self.task, target=target,
-                body=self.body, annotator=self.annotator,  score=self.score)
+        return Annotation(
+            unique_id=str(uuid.uuid4()),
+            entity=self.entity,
+            document=self.document,
+            task=self.task,
+            target=target,
+            body=self.body,
+            annotator=self.annotator,
+            score=self.score
+        )
 
 
 class AnnotatorFactory:
+    """A factory class to create Annotator objects from different formats."""
 
     @staticmethod
     def from_dict(d):
+        """Creates a Annotator from a dictionary."""
         return Annotator(
             unique_id=d['id'],
             name=d['name'],
@@ -219,13 +319,34 @@ class AnnotatorFactory:
 
 
 class Annotator(RegistryMixin, FromIdFactoryMixin, AnnotatorFactory):
-    """
-    The Annotator class can create, delete or modify Annotations.
+    """The Annotator class can create, delete or modify Annotations.
+
+    Parameters
+    ----------
+    name : str
+        The name of the annotator
+    model: str
+        The model to use for the annotator
+    task : Task
+        The task that the annotator is assigned to
+    entity_id : int
+        The entity that the annotator is assigned to
+    threshold : float
+        The threshold for the annotator
+    owner : str
+        The owner of the annotator
     """
 
-    def __init__(self, name: str = None, model=None, task: 'Task' = None,
-                 entity_id=None, threshold: float = 0, owner=None, 
-                 **kwargs):
+    def __init__(
+        self,
+        name: str = None,
+        model=None,
+        task: 'Task' = None,
+        entity_id=None,
+        threshold: float = 0,
+        owner=None,
+        **kwargs
+    ):
         self.setattr('name', name)
         self.setattr('task', Task.factory(task))
         self.setattr('owner', owner)
@@ -257,6 +378,13 @@ class Annotator(RegistryMixin, FromIdFactoryMixin, AnnotatorFactory):
         return annotation
 
     def annotate(self, document):
+        """Annotate a document.
+        
+        Parameters
+        ----------
+        document : Document
+            The document to annotate.
+        """
         annotation = self._get_annotation(document)
         if annotation is not None:
             self.task.annotations.append(annotation)
@@ -265,9 +393,11 @@ class Annotator(RegistryMixin, FromIdFactoryMixin, AnnotatorFactory):
 
 
 class CorpusFactory:
+    """A factory class to create ref::`Corpus` objects from different formats."""
 
     @staticmethod
     def from_dict(d):
+        """Creates a Corpus from a dictionary."""
         return Corpus(
             unique_id=d['id'],
             name=d['name'],
@@ -276,9 +406,25 @@ class CorpusFactory:
 
 
 class Corpus(RegistryMixin, FromIdFactoryMixin, CorpusFactory):
+    """A Corpus is a collection of documents.
 
-    def __init__(self, name: str = None, description: str = None,
-                 documents: Iterable['Document'] = [], **kwargs):
+    Parameters
+    ----------
+    name : str
+        The name of the corpus
+    description : str
+        The description of the corpus
+    documents : Iterable[Document]
+        The documents that are in the corpus
+    """
+
+    def __init__(
+        self,
+        name: str = None,
+        description: str = None,
+        documents: Iterable['Document'] = [],
+        **kwargs
+    ):
         self.setattr('name', name)
         self.setattr('description', description)
         self.setattr('documents', set())
@@ -291,9 +437,11 @@ class Corpus(RegistryMixin, FromIdFactoryMixin, CorpusFactory):
 
 
 class DocumentFactory:
+    """A factory class to create ref::`Document` objects from different formats."""
 
     @staticmethod
     def from_dict(d):
+        """Creates a Document from a dictionary."""
         return Document(
             unique_id=d['id'],
             uri=d['uri'],
@@ -303,6 +451,7 @@ class DocumentFactory:
 
     @staticmethod
     def from_bq_row(row):
+        """Creates a Document from a BigQuery row."""
         return Document(
             unique_id=row.id,
             uri=row.uri,
@@ -312,12 +461,25 @@ class DocumentFactory:
 
 
 class Document(RegistryMixin, FromIdFactoryMixin, DocumentFactory):
-    """
-    Base class that holds the document on which to perform annotations.
+    """A Document is the base object that will receive annotations.
+
+    Parameters
+    ----------
+    content : str
+        The content of the document.
+    uri : str
+        The URI of the document.
+    corpus : Corpus
+        The corpus that the document belongs to.
     """
 
-    def __init__(self, content: str = None, uri: str = None,
-                 corpus: Corpus = None, **kwargs):
+    def __init__(
+        self,
+        content: str = None,
+        uri: str = None,
+        corpus: Corpus = None,
+        **kwargs
+    ):
         self.setattr('uri', uri)
         self.setattr('content', content)
         self.setattr('corpus', Corpus.factory(corpus))
@@ -327,7 +489,7 @@ class Document(RegistryMixin, FromIdFactoryMixin, DocumentFactory):
     @property
     def entities(self):
         return list(set(a.entity for a in self.annotations))
-    
+
     def __hash__(self):
         return self.id
 
@@ -336,6 +498,7 @@ class Document(RegistryMixin, FromIdFactoryMixin, DocumentFactory):
 
 
 class EntityFactory:
+    """A factory class to create ref::`Entity` objects from different formats."""
 
     @staticmethod
     def from_dict(d: Dict):
@@ -347,6 +510,15 @@ class EntityFactory:
 
 
 class Entity(RegistryMixin, FromIdFactoryMixin, EntityFactory):
+    """An Entity define the type of an ref::`Annotation`.
+
+    Parameters
+    ----------
+    name : str
+        The name of the entity
+    color : str
+        The color of the entity
+    """
 
     def __init__(self, name: str = None, color: str = None, **kwargs):
         self.setattr('name', name)
@@ -358,6 +530,8 @@ class Entity(RegistryMixin, FromIdFactoryMixin, EntityFactory):
 
 
 class TaskFactory:
+    """A factory class to create Task objects from different formats."""
+
     @staticmethod
     def from_dict(d):
         return Task(
@@ -371,22 +545,47 @@ class TaskFactory:
 
 
 class Task(RegistryMixin, FromIdFactoryMixin, TaskFactory):
-    """
-    The Task class contains all information about a task: entities, corpora, 
-    annotations.
+    """Creates a Task object.
+
+    A `Task` contains is the main entry point for a project and has information
+    on `Entities`, `Corpora` and `Annotators`.
+
+    Parameters
+    ----------
+    name : str
+        The name of the task
+    description : str
+        The description of the task
+    entities : List[Entity]
+        The entities that are being annotated
+    corpora : List[Corpus]
+        The corpora that are being annotated
+    annotators : List[Annotator]
+        The annotators that are being used to annotate the corpora
+    documents : List[Document]
+        The documents that are being annotated
+    annotations: Iterable[Annotation]
+        The annotations that are being annotated
     """
 
     def __init__(
-            self, name: str = None, description: str = None,
-            entities: List[Entity] = [], corpora: List[Corpus] = [],
-            annotators: List[Annotator] = [], documents: List[Document] = [],
-            annotations: Iterable[Annotation] = [], **kwargs):
+        self,
+        name: str = None,
+        description: str = None,
+        entities: List[Entity] = [],
+        corpora: List[Corpus] = [],
+        annotators: List[Annotator] = [],
+        documents: List[Document] = [],
+        annotations: Iterable[Annotation] = [],
+        **kwargs
+    ):
         self.setattr('name', name)
         self.setattr('description', description)
         self.setattr('entities', [Entity.factory(e) for e in entities])
         self.setattr('corpora', [Corpus.factory(c) for c in corpora])
         self.setattr('annotators', [Annotator.factory(a) for a in annotators])
-        self.setattr('annotations', [Annotation.factory(a) for a in annotations])
+        self.setattr('annotations', [Annotation.factory(a)
+                     for a in annotations])
         self.setattr('documents', [Document.factory(d) for d in documents])
         self.register()
 
@@ -401,12 +600,43 @@ class Task(RegistryMixin, FromIdFactoryMixin, TaskFactory):
 
 
 class Organization(RegistryMixin, FromIdFactoryMixin):
+    """An `Organization` is the entity that owns a tasks and datasets.
+
+    Parameters
+    ----------
+    name : str
+        The name of the organization
+    avatar : str
+        The avatar of the organization
+    slug : str
+        The slug of the organization
+    description : str
+        The description of the organization
+    website : str
+        The website of the organization
+    email : str
+        The email of the organization
+    location : str
+        The location of the organization
+    individual : bool
+        Whether the organization is an individual or not
+    created : str
+        The date and time the organization was created
+    """
 
     def __init__(
-            self, name: str, avatar: str, slug: str, description: str, 
-            website: str, email: str, location: str, individual: bool, 
-            created: str, **kwargs
-        ):
+        self,
+        name: str,
+        avatar: str,
+        slug: str,
+        description: str,
+        website: str,
+        email: str,
+        location: str,
+        individual: bool,
+        created: str,
+        **kwargs
+    ):
         self.setattr('name', name)
         self.setattr('avatar', avatar)
         self.setattr('slug', slug)
@@ -417,7 +647,7 @@ class Organization(RegistryMixin, FromIdFactoryMixin):
         self.setattr('individual', individual)
         self.setattr('created', created)
         self.register()
-    
+
     def __repr__(self):
         return f"{self.id}::{self.name}"
 
@@ -433,31 +663,55 @@ class ScheduleType(Enum):
 
 
 class Schedule(RegistryMixin):
+    """A Schedule defines who should review what.
+
+    A Review can be an ref::`Annotator` reviewing a ref::`Document`, or it could
+    be an ref::`Annotator` reviewing an ref::`Annotation`.
+
+    Parameters
+    ----------
+    status : str
+        The status of the schedule
+    schedule_type : str
+        The type of the schedule
+    priority : float
+        The priority of the schedule
+    timestamp : str
+        The timestamp of the schedule
+    document : Document
+        The document that is being annotated
+    annotator : Annotator
+        The annotator that is being used to annotate the document
+    task : Task
+        The task that is being annotated
+    reviewee : Annotator
+        The annotator that is reviewing the document
+    """
 
     def __init__(
-        self, 
-        status: str, 
-        type: str, 
-        priority: float, 
-        timestamp: str | datetime, 
-        document: Document, 
-        annotator: Annotator, 
-        task: Annotator, 
+        self,
+        status: str,
+        schedule_type: str,
+        priority: float,
+        timestamp: str,
+        document: Document,
+        annotator: Annotator,
+        task: Task,
         reviewee: Annotator,
         **kwargs
     ):
         self.status = DocumentStatus(status)
-        self.type = ScheduleType(type)
+        self.schedule_type = ScheduleType(schedule_type)
         self.priority = priority
         self.timestamp = timestamp
         self.document = Document(document)
         self.annotator = Annotator(annotator)
         self.task = Task(task)
         self.reviewee = Annotator(reviewee)
-    
+
     def __repr__(self) -> str:
-        return f'Schedule::{self.type}::{self.status}'
-    
+        return f'Schedule::{self.schedule_type}::{self.status}'
+
 
 __all__ = [
     'Annotation', 'Annotator', 'Corpus', 'Document', 'Entity', 'Task',
