@@ -1,3 +1,5 @@
+"""Fixtures used in the unit tests."""
+
 ANNOTATIONS = [
     {
         "id": "0039c720-2b07-4d5d-9ea5-dca8a30a9956",
@@ -22,11 +24,11 @@ ANNOTATIONS = [
 ]
 
 DOCUMENTS = [
- {
-     "id": "926c0143-1d36-4e81-87b5-fd17f2f43d17",
-     "uri": "5454",
-     "title": None,
-     "content": "skillful",
-     "corpus": "788658a1-1f4f-4e40-86f7-7d65cde29438"
- }
+    {
+        "id": "926c0143-1d36-4e81-87b5-fd17f2f43d17",
+        "uri": "5454",
+        "title": None,
+        "content": "skillful",
+        "corpus": "788658a1-1f4f-4e40-86f7-7d65cde29438"
+    }
 ]

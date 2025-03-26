@@ -1,3 +1,4 @@
+# pylint: skip-file
 from typing import List
 import io
 import warnings
@@ -143,7 +144,6 @@ class LinalgoClient:
         url = f"{self.api_url}/{self.endpoints['organizations']}/"
         orgs = []
         for data in self.get(url)['results']:
-            print(data)
             org = models.Organization(**data)
             orgs.append(org)
         return self.get(url)['results']

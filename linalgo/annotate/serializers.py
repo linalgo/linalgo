@@ -1,20 +1,30 @@
-from .bbox import BoundingBox
+"""Serializers for linalgo models."""
 from linalgo.annotate import models
+from linalgo.annotate.bouding_box import BoundingBox
 
 
+# pylint: disable=too-few-public-methods
 class Serializer:
+    """Base class for serializers."""
 
     def __init__(self, instance):
         self.instance = instance
         self.many = hasattr(instance, '__len__')
 
+    @staticmethod
+    def _serialize(instance):
+        """Serialize the instance."""
+        raise NotImplementedError
+
     def serialize(self):
+        """Serialize the instance."""
         if self.many:
             return [self._serialize(i) for i in self.instance]
         return self._serialize(self.instance)
 
 
 class BoundingBoxSerializer(Serializer):
+    """Serializer for BoundingBox."""
 
     @staticmethod
     def _serialize(instance):
@@ -25,8 +35,10 @@ class BoundingBoxSerializer(Serializer):
         }
         return s
 
+
 class XPathSelectorSerializer(Serializer):
-    
+    """Serializer for XPathSelector."""
+
     @staticmethod
     def _serialize(instance):
         s = {
@@ -37,33 +49,45 @@ class XPathSelectorSerializer(Serializer):
         }
         return s
 
+
+class NoSerializerFound(Exception):
+    """No serializer was found for the given instance."""
+
+    def __init__(self, instance):
+        self.message = f"No serializer found for {type(instance)}"
+        super().__init__(self.message)
+
+
 class SelectorSerializerFactory:
+    """Factory for creating serializers for selectors."""
 
     @staticmethod
     def create(instance):
-        if type(instance) == BoundingBox:
+        """Create a serializer for the given instance."""
+        if isinstance(instance, BoundingBox):
             return BoundingBoxSerializer(instance)
-        elif isinstance(instance, models.XPathSelector):
+        if isinstance(instance, models.XPathSelector):
             return XPathSelectorSerializer(instance)
-        else:
-            raise Exception(f"No serializer factory for {type(instance)}")
+        raise NoSerializerFound(instance)
 
 
 class TargetSerializer(Serializer):
+    """Serializer for Target."""
 
     @staticmethod
-    def _serialize(target):
+    def _serialize(instance):
         s = {
-            'source': target.source.id,
+            'source': instance.source.id,
             'selector': []
         }
-        for selector in target.selector:
+        for selector in instance.selector:
             serializer = SelectorSerializerFactory.create(selector)
             s['selector'].append(serializer.serialize())
         return s
 
 
 class AnnotationSerializer(Serializer):
+    """Serializer for Annotation."""
 
     @staticmethod
     def _serialize(instance):
@@ -86,7 +110,10 @@ class AnnotationSerializer(Serializer):
         }
         return s
 
+
 class DocumentSerializer(Serializer):
+    """Serializer for Document."""
+
     @staticmethod
     def _serialize(instance):
         return {
@@ -98,6 +125,8 @@ class DocumentSerializer(Serializer):
 
 
 class CorpusSerializer(Serializer):
+    """Serializer for Corpus."""
+
     @staticmethod
     def _serialize(instance: models.Corpus):
         s = DocumentSerializer(instance.documents)

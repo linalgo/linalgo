@@ -5,6 +5,13 @@ from linalgo.annotate.models import Annotation, Document
 
 
 class BQClient:
+    """Retrieve annotated data from BigQuery.
+    
+    Parameters
+    ----------
+    task_id: str
+        The id of the task to retrieve.
+    """
 
     def __init__(self, task_id):
         self.client = bigquery.Client()
@@ -21,6 +28,7 @@ class BQClient:
         return job.result()
 
     def get_annotations(self):
+        """Retrieve all the annotations for the task."""
         prefix = "linalgo-infra.linhub_prod.public_"
         query = (
             'SELECT la.* '
@@ -33,6 +41,7 @@ class BQClient:
         return [Annotation.from_bq_row(row) for row in rows]
 
     def get_documents(self):
+        """Retrieve all the documents for the task."""
         prefix = "linalgo-infra.linhub_prod.public_"
         query = (
             'SELECT ld.* '
