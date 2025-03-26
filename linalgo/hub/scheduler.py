@@ -1,25 +1,34 @@
+"""Helper class to assign reviews to annotators."""
 import numpy as np
-
-from django.utils.dateparse import parse_datetime
-
+from dateutil.parser import parse as parse_datetime
 
 from linalgo.hub.client import AssignmentStatus
 
 
 class AnnotatorNotFound(Exception):
-    pass
+    """No annotator was found."""
 
 
 class NotEnoughReviews(Exception):
-    pass
+    """The document does not have enough reviews."""
 
 
 class Scheduler:
+    """Assign documents to annotators for review.
+
+    Parameters
+    ----------
+    task: Task
+        The task this scheduler is associated to.
+    schedule: pd.DataFrame
+        The assignment table.
+    """
 
     def __init__(self, task, schedule):
         self.task = task
         self.schedule = schedule
-        self.schedule['timestamp'] = schedule['timestamp'].apply(parse_datetime)
+        self.schedule['timestamp'] = schedule['timestamp'].apply(
+            parse_datetime)
 
     def unseen_documents(self, n):
         """
@@ -39,9 +48,17 @@ class Scheduler:
 
         return set(np.random.choice(new_docs, size=n, replace=False))
 
-    def random_review(self, reviewer_id, reviewee_id, n=None, start_date=None,
-                      end_date=None):
+    def random_review(
+        self,
+        reviewer_id,
+        reviewee_id,
+        n=None,
+        start_date=None,
+        end_date=None
+    ):
         """
+        Randomly choose documents for review and assigns them.
+
         Parameters
         ----------
         reviewer_id: uuid
@@ -61,13 +78,15 @@ class Scheduler:
         """
         schedule = self.schedule
         if start_date is not None:
-            idx = (schedule['annotator'] == reviewee_id) & schedule['timestamp']
+            idx = (schedule['annotator'] ==
+                   reviewee_id) & schedule['timestamp']
             schedule = schedule[idx]
         if end_date is not None:
-            idx = (schedule['annotator'] == reviewee_id) & schedule['timestamp']
+            idx = (schedule['annotator'] ==
+                   reviewee_id) & schedule['timestamp']
             schedule = schedule[idx]
         if (reviewer_id not in {a.id for a in self.task.annotators} or
-            reviewee_id not in {a.id for a in self.task.annotators}):
+                reviewee_id not in {a.id for a in self.task.annotators}):
             raise AnnotatorNotFound()
         reviewer_idx = schedule['annotator'] == reviewer_id
         reviewee_idx = schedule['annotator'] == reviewee_id
@@ -105,7 +124,7 @@ class Scheduler:
 
         if assignee_id not in {a.id for a in self.task.annotators}:
             raise AnnotatorNotFound(
-                '{} is not a known annotator'.format(assignee_id))
+                f'{assignee_id} is not a known annotator')
 
         all_docs = set(doc.id for doc in self.task.documents)
         all_seen_docs = set()
@@ -125,4 +144,3 @@ class Scheduler:
             print(pool)
             raise NotEnoughReviews()
         return set(np.random.choice(pool, size=n, replace=False))
-

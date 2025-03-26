@@ -1,3 +1,4 @@
+# pylint: skip-file
 from typing import List
 import io
 import warnings
@@ -89,10 +90,22 @@ class LinalgoClient:
             return d
 
     def get_current_annotator(self):
+        """Returns the current annotator."""
         url = f"{self.api_url}/{self.endpoints['annotators']}/me/"
         return Annotator(**self.get(url))
 
     def create_corpus(self, corpus: Corpus, organization: models.Organization):
+        """Creates a new corpus.
+        
+        Parameters
+        ----------
+        corpus: Corpus
+        organization: Organization
+        
+        Returns
+        -------
+        Corpus
+        """
         url = f"{self.api_url}/{self.endpoints['corpora']}/"
         serializer = serializers.CorpusSerializer(corpus)
         data = serializer.serialize()
@@ -101,6 +114,7 @@ class LinalgoClient:
         return models.Corpus(**res.json())
     
     def add_documents(self, documents: List[models.Document]):
+        """Add the documents provided"""
         url = f"{self.api_url}/{self.endpoints['documents']}/import_documents/"
         serializer = serializers.DocumentSerializer(documents)
         f = io.StringIO()
@@ -130,7 +144,6 @@ class LinalgoClient:
         url = f"{self.api_url}/{self.endpoints['organizations']}/"
         orgs = []
         for data in self.get(url)['results']:
-            print(data)
             org = models.Organization(**data)
             orgs.append(org)
         return self.get(url)['results']

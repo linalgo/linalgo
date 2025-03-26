@@ -1,0 +1,14 @@
+[project]
+name = "linalgo"
+version = "0.1"
+description = "Python library for Natural Language Processing supporting the open annotation standard"
+authors = [
+    { name = "Arnaud Rachez", email = "arnaud@linalgo.com" }
+]
+dynamic = ["dependencies"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
