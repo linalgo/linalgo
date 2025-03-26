@@ -11,7 +11,7 @@ image formats: TXT, PDF, HTML, etc.
 
 ## Documentation
 
-The documentation is available [here](https://linalgo.github.io/annotate-sdk/)
+The documentation is available at [https://linalgo.github.io/linalgo](https://linalgo.github.io/linalgo/)
 
 ## Installation 
 
