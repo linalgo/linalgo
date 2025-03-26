@@ -208,9 +208,7 @@ class Sequence2SequenceTransformer(Transformer):
                 idx += len(token)
                 in_seq.append(token)
                 if self.strategy == "majority":
-                    print(labels)
                     labels = self.get_majority(labels)
-                    print(labels)
                 elif self.strategy == "all":
                     labels = tuple(set(labels))
                 out_seq.append(labels)
