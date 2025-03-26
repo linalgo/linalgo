@@ -133,7 +133,7 @@ class Target(TargetFactory):
         if selector is None:
             selector = []
         self.selector = [SelectorFactory.factory(s) for s in selector]
-    
+
     def __repr__(self):
         return str(self.selector)
 
@@ -177,8 +177,8 @@ class RegistryMixin:
         """
         if value in (None, [], set()):
             if hasattr(self, name):
-                if self.__getattribute__(name) not in (None, [], set()):
-                    value = self.__getattribute__(name)
+                if getattr(self, name) not in (None, [], set()):
+                    value = getattr(self, name)
         return value
 
 
@@ -312,10 +312,12 @@ class Annotation(RegistryMixin, FromIdFactoryMixin, AnnotationFactory):
 
     @property
     def start(self):
+        """Return the start offset of the annotation."""
         return self.target.selector[0].start_offset
 
     @property
     def end(self):
+        """Return the end offset of the annotation."""
         return self.target.selector[0].end_offset
 
     def get_context(self, context_len):
@@ -668,6 +670,7 @@ class Task(RegistryMixin, FromIdFactoryMixin, TaskFactory):
 
 
 class Organization(RegistryMixin, FromIdFactoryMixin):
+    # pylint: disable=too-many-instance-attributes
     """An `Organization` is the entity that owns a tasks and datasets.
 
     Parameters

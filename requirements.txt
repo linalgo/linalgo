@@ -1,2 +1,5 @@
-numpy>=1.14.3
-requests>=2.20.0
+google-cloud
+numpy
+PIL
+python-dateutil
+requests
