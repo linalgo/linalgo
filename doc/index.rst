@@ -1,22 +1,20 @@
-.. linalgo-annotate documentation master file, created by
-   sphinx-quickstart on Sun Jun 10 12:54:32 2018.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
-linalgo-annotate documentation
-==============================
+Home
+=======
 
 Linalgo is a Python module to help Machine Learning team create and curate 
 datasets for Natural Language Processing. It tries to follow
-the W3C [Web Annotation Data Model](https://www.w3.org/TR/annotation-model/) and
+the W3C `Web Annotation Data Model <https://www.w3.org/TR/annotation-model/>`_ and
 to provides a powerful system to add metadata to most commonly used text and
 image formats: TXT, PDF, HTML, etc.
 
 Installation
 ============
 
-`linalgo-annoate` is compatible with **python 3.8 and above** 
-(see :ref:`install_page`).
+You can install linalgo using pip::
+
+    pip install linalgo
+
+For other options, see :ref:`install_page`.
 
 Getting started
 ===============

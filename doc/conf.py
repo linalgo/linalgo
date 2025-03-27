@@ -39,7 +39,8 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.githubpages',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'sphinx_rtd_theme'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -56,7 +57,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'linalgo'
-copyright = u'2018, Linalgo SAS'
+copyright = u'2025, Linalgo'
 author = u'Arnaud Rachez'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -124,7 +125,7 @@ html_sidebars = {
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'linalgo-annotatedoc'
+htmlhelp_basename = 'linalgo-doc'
 
 
 # -- Options for LaTeX output ---------------------------------------------

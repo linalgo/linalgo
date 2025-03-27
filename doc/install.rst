@@ -4,26 +4,29 @@
 Installation
 ============
 
-`pip install linalgo`
+The easiest way to install linalgo is to use pip::
+
+    pip install linalgo
 
 
 Development install
 -------------------
 
-**Cloning the repository**
+You can also install the latest version locally::
 
     git clone https://github.com/linalgo/linalgo.git
-
-**Development mode**
-
-Currently, the library must be installed in develpment mode to function properly::
-
     pip install -e .
 
-**Running test**
+Running tests
+-------------
 
 
 Verify that the installation is by running the folowing command at the root of the 
 project::
 
     pytest
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
