@@ -6,15 +6,16 @@
 linalgo-annotate documentation
 ==============================
 
-`linalgo-annotate` is a Python library for natural language processing built 
-around annotations. It is compatible with the `W3C web annotation data model <https://www.w3.org/TR/annotation-model/>`_.
-
-Contact: `arnaud@linalgo.com`
+Linalgo is a Python module to help Machine Learning team create and curate 
+datasets for Natural Language Processing. It tries to follow
+the W3C [Web Annotation Data Model](https://www.w3.org/TR/annotation-model/) and
+to provides a powerful system to add metadata to most commonly used text and
+image formats: TXT, PDF, HTML, etc.
 
 Installation
 ============
 
-`linalgo-annoate` is compatible with **python 3.6 and above** 
+`linalgo-annoate` is compatible with **python 3.8 and above** 
 (see :ref:`install_page`).
 
 Getting started
