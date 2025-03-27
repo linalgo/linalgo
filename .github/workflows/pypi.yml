@@ -1,6 +1,10 @@
 name: PyPI
 
-on: push
+on: 
+  push:
+    branches: ["prod"]
+  pull_request:
+    branches: ["prod"]
 
 jobs:
   build:
@@ -32,7 +36,7 @@ jobs:
   publish-to-pypi:
     name: >-
       Publish 📦 to PyPI
-    if: startsWith(github.ref, 'refs/tags/')  # only publish to PyPI on tag pushes
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/prod' }}
     needs:
     - build
     runs-on: ubuntu-latest
@@ -93,6 +97,7 @@ jobs:
 
   publish-to-testpypi:
     name: Publish 📦 to TestPyPI
+    if: ${{ github.event_name == 'pull_request' && github.ref == 'refs/heads/prod' }}
     needs:
     - build
     runs-on: ubuntu-latest

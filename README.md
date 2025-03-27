@@ -1,5 +1,7 @@
 ![main](https://github.com/linalgo/linalgo/actions/workflows/main.yml/badge.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![PyPI - Version](https://img.shields.io/pypi/v/linalgo)
+
 
 # Linalgo W3C Web Annotation Library
 
@@ -25,7 +27,7 @@ pip install linalgo
 pytest
 ```
 
-# Storing Annotation Data
+## Storing Annotation Data
 
 By default, linalgo stores annotations on a dedicated hub at https://hub.linalgo.com.
 There are also connectors to retrieve data from Google BigQuery.
