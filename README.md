@@ -29,5 +29,3 @@ pytest
 
 By default, linalgo stores annotations on a dedicated hub at https://hub.linalgo.com.
 There are also connectors to retrieve data from Google BigQuery.
-
-
