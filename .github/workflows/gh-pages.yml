@@ -1,6 +1,6 @@
 name: GitHub Pages
 
-on: [pull_request]
+on: [push]
 
 permissions:
   contents: write
