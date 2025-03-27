@@ -1,7 +1,7 @@
 [project]
 name = "linalgo"
 version = "0.1"
-description = "Python library for Natural Language Processing supporting the open annotation standard"
+description = "W3C Data Annotation for Natual Language Processing and Machine Leaning in Python."
 authors = [
     { name = "Arnaud Rachez", email = "arnaud@linalgo.com" }
 ]
@@ -12,3 +12,8 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
+
+[project.urls] # Optional
+"Homepage" = "https://github.com/linalgo/linalgo"
+"Bug Reports" = "https://github.com/linalgo/linalgo/issues"
+"Source" = "https://github.com/linalgo/linalgo"
