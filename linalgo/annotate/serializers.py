@@ -76,10 +76,9 @@ class TargetSerializer(Serializer):
 
     @staticmethod
     def _serialize(instance):
-        s = {
-            'source': instance.source.id,
-            'selector': []
-        }
+        s = {'selector': [], 'source': None}
+        if hasattr(instance.source, 'id'):
+            s['source'] = instance.source.id
         for selector in instance.selector:
             serializer = SelectorSerializerFactory.create(selector)
             s['selector'].append(serializer.serialize())

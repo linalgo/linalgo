@@ -90,7 +90,7 @@ class TargetFactory:
     def factory(data):
         """Factory method for W3C Target."""
         if data is None:
-            return Target(source=None, selector=[XPathSelector()])
+            return Target(selector=[XPathSelector()])
         if isinstance(data, Target):
             return data
         if isinstance(data, str):
@@ -104,7 +104,7 @@ class TargetFactory:
     def from_dict(d: Dict):
         """Creates a W3C target from a dictionary."""
         if d == {}:
-            return Target(source=None, selector=[])
+            return Target(selector=[])
         return Target(
             source=Document.factory(d['source']),
             selector=[SelectorFactory.factory(s) for s in d['selector']]
