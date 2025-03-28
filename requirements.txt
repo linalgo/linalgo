@@ -1,3 +1,4 @@
+ipython
 google-cloud
 numpy
 pillow
