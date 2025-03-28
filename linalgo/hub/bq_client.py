@@ -6,15 +6,15 @@ from linalgo.annotate.models import Annotation, Document
 
 class BQClient:
     """Retrieve annotated data from BigQuery.
-    
+
     Parameters
     ----------
     task_id: str
         The id of the task to retrieve.
     """
 
-    def __init__(self, task_id):
-        self.client = bigquery.Client()
+    def __init__(self, task_id, project=None):
+        self.client = bigquery.Client(project=project)
         self.task_id = task_id
 
     def _get_query_data(self, query):
