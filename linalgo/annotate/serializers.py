@@ -1,6 +1,6 @@
 """Serializers for linalgo models."""
 from linalgo.annotate import models
-from linalgo.annotate.bouding_box import BoundingBox
+from linalgo.annotate.bounding_box import BoundingBox
 
 
 # pylint: disable=too-few-public-methods
@@ -84,12 +84,57 @@ class TargetSerializer(Serializer):
             s['selector'].append(serializer.serialize())
         return s
 
+class TaskSerializer(Serializer):
+    """Serializer for Task."""
+
+    @staticmethod
+    def _serialize(instance: models.Task):
+        entities = EntitySerializer(instance.entities).serialize()
+        annotators = AnnotatorSerializer(instance.annotators).serialize()
+        corpora = CorpusSerializer(instance.corpora).serialize()
+
+        return {
+            'name': instance.name,
+            'description': instance.description,
+            'entities': entities,
+            'annotators': annotators,
+            'corpora': corpora,
+            'is_private': instance.is_private,
+            'type': instance.task_type,
+            'labelling_app_url': instance.labelling_app_url
+        }
+
+
+class AnnotatorSerializer(Serializer):
+    """Serializer for Annotator."""
+
+    @staticmethod
+    def _serialize(instance: models.Annotator):
+        return {
+            'id': instance.id,
+            'name': instance.name,
+            'task': instance.task,
+            'model': instance.model,
+            'entity_id': instance.entity_id,
+        }
+
+
+class EntitySerializer(Serializer):
+    """Serializer for Entity."""
+
+    @staticmethod
+    def _serialize(instance: models.Entity):
+        return {
+            'id': instance.id,
+            'title': instance.name
+        }
+
 
 class AnnotationSerializer(Serializer):
     """Serializer for Annotation."""
 
     @staticmethod
-    def _serialize(instance):
+    def _serialize(instance: models.Annotation):
         annotator_id = None
         if instance.annotator is not None:
             annotator_id = instance.annotator.id
@@ -99,11 +144,11 @@ class AnnotationSerializer(Serializer):
             target = target_serializer.serialize()
         s = {
             'id': instance.id,
-            'task_id': instance.task.id,
-            'entity_id': instance.entity.id,
+            'task': instance.task.id,
+            'entity': instance.entity.id,
             'body': instance.body or '',
-            'annotator_id': annotator_id,
-            'document_id': instance.document.id,
+            'annotator': annotator_id,
+            'document': instance.document.id,
             'created': instance.created.strftime('%Y/%m/%d %H:%M:%S.%f'),
             'target': target
         }

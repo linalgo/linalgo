@@ -14,3 +14,4 @@ venv/
 # Other
 .pytest_cache/
 Linalgo.egg-info/
+.DS_Store

@@ -1,6 +1,7 @@
 # pylint: skip-file
-from typing import List
 import io
+import os
+from typing import List
 import warnings
 from enum import Enum
 
@@ -13,8 +14,12 @@ from linalgo.annotate.models import (
     Annotation, Annotator, Corpus, Document, Entity, Task, Schedule
 )
 from linalgo.annotate import models, serializers
-from linalgo.annotate.serializers import AnnotationSerializer, DocumentSerializer
+from linalgo.annotate.serializers import AnnotationSerializer, \
+    EntitySerializer, DocumentSerializer, TaskSerializer
 
+
+class Error400(Exception):
+    """400 error."""
 
 class AssignmentType(Enum):
     REVIEW = 'R'
@@ -34,15 +39,24 @@ class LinalgoClient:
         'corpora': 'corpora',
         'documents': 'documents',
         'entities': 'entities',
-        'task': 'tasks',
+        'tasks': 'tasks',
         'annotations-export': 'annotations/export',
         'documents-export': 'documents/export',
         'organizations': 'organizations'
     }
 
-    def __init__(self, token, api_url="http://localhost:8000"):
-        self.api_url = api_url
-        self.access_token = token
+    def __init__(
+        self,
+        token=None,
+        api_url=None,
+        organization=None,
+        verbose=True
+    ):
+        url_default = 'http://localhost:8000/v1/'
+        self.api_url = api_url or os.getenv('LINHUB_URL', url_default)
+        self.access_token = token or os.getenv('LINHUB_TOKEN')
+        self.organization = organization or os.getenv('LINHUB_ORG')
+        self.verbose = verbose
 
     def get(self, url, query_params={}):
         headers = {'Authorization': f"Token {self.access_token}"}
@@ -65,13 +79,14 @@ class LinalgoClient:
             raise Exception(f"Authentication failed. Please check your token.")
         elif res.status_code == 404:
             raise Exception(f"{url} not found.")
+        elif 400 <= res.status_code < 500:
+            raise Error400(res.json())
         else:
             raise Exception(
                 f"Request returned status {res.status_code}, {res.content}")
 
     def request_csv(self, url, query_params={}):
         headers = {'Authorization': f"Token {self.access_token}"}
-        # stream the file
         with closing(requests.get(url, stream=True,
                                   headers=headers, params=query_params)) as res:
             if res.status_code == 401:
@@ -94,42 +109,59 @@ class LinalgoClient:
         url = f"{self.api_url}/{self.endpoints['annotators']}/me/"
         return Annotator(**self.get(url))
 
-    def create_corpus(self, corpus: Corpus, organization: models.Organization):
+    def create_corpus(self, corpus: Corpus):
         """Creates a new corpus.
-        
+
         Parameters
         ----------
         corpus: Corpus
-        organization: Organization
-        
+
         Returns
         -------
         Corpus
         """
-        url = f"{self.api_url}/{self.endpoints['corpora']}/"
-        serializer = serializers.CorpusSerializer(corpus)
-        data = serializer.serialize()
-        data['organization'] = organization.id
-        res = self.post(url, data=data)
-        return models.Corpus(**res.json())
-    
+        if self.verbose:
+            print(f"Creating {corpus}...", end=' ')
+        try:
+            url = f"{self.api_url}/{self.endpoints['corpora']}/"
+            serializer = serializers.CorpusSerializer(corpus)
+            data = serializer.serialize()
+            data['organization'] = self.organization
+            res = self.post(url, data=data)
+            if self.verbose:
+                print("OK.")
+            return models.Corpus(**res.json())
+        except Error400 as e:
+            if self.verbose:
+                print(f"failed. ({e})")
+            return e
+
     def add_documents(self, documents: List[models.Document]):
         """Add the documents provided"""
-        url = f"{self.api_url}/{self.endpoints['documents']}/import_documents/"
-        serializer = serializers.DocumentSerializer(documents)
-        f = io.StringIO()
-        keys = ['id', 'uri', 'content','corpus_id']
-        writer = csv.DictWriter(f, keys)
-        writer.writeheader()
-        writer.writerows(serializer.serialize())
-        csv_content = f.getvalue()
-        files = {'fileKey': ('data.csv', csv_content.encode('utf-8'), 'text/csv')}
-        return self.post(url, files=files)
-    
+        if self.verbose:
+            print(f"Adding {len(documents)} documents...", end=' ')
+        try:
+            url = f"{self.api_url}/{self.endpoints['documents']}/import_documents/"
+            serializer = serializers.DocumentSerializer(documents)
+            f = io.StringIO()
+            keys = ['id', 'uri', 'content','corpus_id']
+            writer = csv.DictWriter(f, keys)
+            writer.writeheader()
+            writer.writerows(serializer.serialize())
+            csv_content = f.getvalue()
+            files = {'fileKey': ('data.csv', csv_content.encode('utf-8'), 'text/csv')}
+            res = self.post(url, files=files)
+            if self.verbose:
+                print("OK.")
+        except Error400 as e:
+            if self.verbose:
+                print(f"failed. ({e})")
+            return e
+
     def get_next_document(self, task_id: str):
         url = f"{self.api_url}/tasks/{task_id}/next_document/"
         return Document(**self.get(url))
-    
+
 
     def get_corpora(self):
         res = self.get(self.endpoints['corpora'])
@@ -139,7 +171,7 @@ class LinalgoClient:
             corpus = self.get_corpus(corpus_id)
             corpora.append(corpus)
         return corpora
-    
+
     def get_organizations(self):
         url = f"{self.api_url}/{self.endpoints['organizations']}/"
         orgs = []
@@ -147,7 +179,7 @@ class LinalgoClient:
             org = models.Organization(**data)
             orgs.append(org)
         return self.get(url)['results']
-    
+
     def get_organization(self, org_id: str):
         url = f"{self.api_url}/{self.endpoints['organizations']}/{org_id}/"
         data = self.get(url)
@@ -171,8 +203,50 @@ class LinalgoClient:
             documents.append(document)
         return documents
 
+    def create_entities(self, entities):
+        if self.verbose:
+            print(f"Creating {len(entities)} entities...", end=' ')
+        try:
+            url = f"{self.api_url}/{self.endpoints['entities']}/"
+            data = EntitySerializer(entities).serialize()
+            res = self.post(url, json=data)
+            if self.verbose:
+                print("OK.")
+            return res
+        except Error400 as e:
+            if self.verbose:
+                print(f"failed. ({e})")
+            return e
+
+
+    def create_task(self, task: models.Task):
+        url = f"{self.api_url}/{self.endpoints['tasks']}/"
+        data = TaskSerializer(task).serialize()
+        for corpus in task.corpora:
+            self.create_corpus(corpus)
+        documents = set()
+        for corpus in task.corpora:
+            for doc in corpus.documents:
+                documents.add(doc)
+        self.add_documents(documents)
+        self.create_entities(task.entities)
+        data['organization'] = self.organization
+        data['corpora'] = [c.id for c in task.corpora]
+        data['entities'] = [e.id for e in task.entities]
+        try:
+            if self.verbose:
+                print(f"Creating {task}...", end=' ')
+            res = self.post(url, data=data)
+            if self.verbose:
+                print("OK.")
+            return Task(**res.json())
+        except Error400 as e:
+            if self.verbose:
+                print(f"failed. ({e})")
+            return e
+
     def get_tasks(self, task_ids=[]):
-        url = "tasks/"
+        url = f"{self.api_url}/{self.endpoints['tasks']}/"
         tasks = []
         res = self.get(url)
         if len(task_ids) == 0:
@@ -180,7 +254,7 @@ class LinalgoClient:
                 task_ids.append(js['id'])
         for task_id in task_ids:
             task = self.get_task(task_id)
-            tasks.extend(task)
+            tasks.append(task)
         return tasks
 
     def get_task_documents(self, task_id):
@@ -205,7 +279,7 @@ class LinalgoClient:
 
     def get_task(self, task_id, verbose=False, lazy=False):
         task_url = "{}/{}/{}/".format(
-            self.api_url, self.endpoints['task'], task_id)
+            self.api_url, self.endpoints['tasks'], task_id)
         if verbose:
             print(f'Retrivieving task with id {task_id}...')
         task_json = self.get(task_url)
@@ -270,22 +344,23 @@ class LinalgoClient:
         return annotator
 
     def add_annotators_to_task(self, annotators, task):
-        endpoint = self.endpoints['task']
+        endpoint = self.endpoints['tasks']
         url = f"{self.api_url}/{endpoint}/{task.id}/add_annotators/"
         payload = [annotator.id for annotator in annotators]
         return self.post(url, json=payload)
 
-    def create_annotations(self, annotations):
-        url = "{}/{}/import_annotations/".format(
-            self.api_url, self.endpoints['annotations'])
+    def create_annotations(self, annotations, task=None):
+        url = f"{self.api_url}/{self.endpoints['annotations']}/"
+        if task is not None:
+            for annotation in annotations:
+                annotation.task = task
         serializer = AnnotationSerializer(annotations)
         payload = serializer.serialize()
         res = self.post(url, json=payload)
         return res
 
     def delete_annotations(self, annotations):
-        url = "{}/{}/bulk_delete/".format(self.api_url,
-                                          self.endpoints['annotations'])
+        url = f"{self.api_url}/{self.endpoints['annotations']}/bulk_delete/"
         headers = {'Authorization': f"Token {self.access_token}"}
         annotations_ids = [annotation.id for annotation in annotations]
         res = requests.delete(url, json=annotations_ids, headers=headers)
@@ -333,9 +408,9 @@ class LinalgoClient:
         url = f"{self.api_url}/corpora/{corpus.id}/add_document/"
         payload = DocumentSerializer(doc).serialize()
         return self.post(url, data=payload)
-    
+
     def complete_document(self, doc, task):
-        endpoint = self.endpoints['task']
+        endpoint = self.endpoints['tasks']
         url = f"{self.api_url}/{endpoint}/{task.id}/complete_document/"
         return self.post(url, data={'document': doc.id})
 
