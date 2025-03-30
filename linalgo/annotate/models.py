@@ -384,7 +384,7 @@ class Annotator(RegistryMixin, FromIdFactoryMixin, AnnotatorFactory):
         name: str = None,
         model=None,
         task: 'Task' = None,
-        entity_id=None,
+        entity=None,
         threshold: float = 0,
         owner=None,
         **kwargs  # pylint: disable=unused-argument
@@ -393,7 +393,7 @@ class Annotator(RegistryMixin, FromIdFactoryMixin, AnnotatorFactory):
         self.task = self.get('task', Task.factory(task))
         self.owner = self.get('owner', owner)
         self.model = self.get('model', model or 'MACHINE')
-        self.entity_id = self.get('entity_id', entity_id)
+        self.entity = self.get('entity', entity)
         self.threshold = self.get('threshold', threshold)
 
     def __repr__(self):

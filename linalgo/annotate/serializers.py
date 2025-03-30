@@ -126,8 +126,7 @@ class EntitySerializer(Serializer):
     def _serialize(instance: models.Entity):
         return {
             'id': instance.id,
-            'name': instance.name,
-            'color': instance.color,
+            'title': instance.name
         }
 
 
@@ -145,11 +144,11 @@ class AnnotationSerializer(Serializer):
             target = target_serializer.serialize()
         s = {
             'id': instance.id,
-            'task_id': instance.task.id,
-            'entity_id': instance.entity.id,
+            'task': instance.task.id,
+            'entity': instance.entity.id,
             'body': instance.body or '',
-            'annotator_id': annotator_id,
-            'document_id': instance.document.id,
+            'annotator': annotator_id,
+            'document': instance.document.id,
             'created': instance.created.strftime('%Y/%m/%d %H:%M:%S.%f'),
             'target': target
         }
