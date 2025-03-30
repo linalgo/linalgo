@@ -13,7 +13,8 @@ from linalgo.annotate.models import (
     Annotation, Annotator, Corpus, Document, Entity, Task, Schedule
 )
 from linalgo.annotate import models, serializers
-from linalgo.annotate.serializers import AnnotationSerializer, DocumentSerializer
+from linalgo.annotate.serializers import AnnotationSerializer, \
+    DocumentSerializer, TaskSerializer
 
 
 class AssignmentType(Enum):
@@ -34,7 +35,7 @@ class LinalgoClient:
         'corpora': 'corpora',
         'documents': 'documents',
         'entities': 'entities',
-        'task': 'tasks',
+        'tasks': 'tasks',
         'annotations-export': 'annotations/export',
         'documents-export': 'documents/export',
         'organizations': 'organizations'
@@ -96,12 +97,12 @@ class LinalgoClient:
 
     def create_corpus(self, corpus: Corpus, organization: models.Organization):
         """Creates a new corpus.
-        
+
         Parameters
         ----------
         corpus: Corpus
         organization: Organization
-        
+
         Returns
         -------
         Corpus
@@ -112,7 +113,7 @@ class LinalgoClient:
         data['organization'] = organization.id
         res = self.post(url, data=data)
         return models.Corpus(**res.json())
-    
+
     def add_documents(self, documents: List[models.Document]):
         """Add the documents provided"""
         url = f"{self.api_url}/{self.endpoints['documents']}/import_documents/"
@@ -125,11 +126,11 @@ class LinalgoClient:
         csv_content = f.getvalue()
         files = {'fileKey': ('data.csv', csv_content.encode('utf-8'), 'text/csv')}
         return self.post(url, files=files)
-    
+
     def get_next_document(self, task_id: str):
         url = f"{self.api_url}/tasks/{task_id}/next_document/"
         return Document(**self.get(url))
-    
+
 
     def get_corpora(self):
         res = self.get(self.endpoints['corpora'])
@@ -139,7 +140,7 @@ class LinalgoClient:
             corpus = self.get_corpus(corpus_id)
             corpora.append(corpus)
         return corpora
-    
+
     def get_organizations(self):
         url = f"{self.api_url}/{self.endpoints['organizations']}/"
         orgs = []
@@ -147,7 +148,7 @@ class LinalgoClient:
             org = models.Organization(**data)
             orgs.append(org)
         return self.get(url)['results']
-    
+
     def get_organization(self, org_id: str):
         url = f"{self.api_url}/{self.endpoints['organizations']}/{org_id}/"
         data = self.get(url)
@@ -170,6 +171,16 @@ class LinalgoClient:
             document = Document.from_dict(d)
             documents.append(document)
         return documents
+
+    def create_task(self, task: models.Task, organization: models.Organization):
+        url = f"{self.api_url}/{self.endpoints['tasks']}"
+        data = TaskSerializer(task).serialize()
+        data['organization'] = organization
+        if isinstance(organization, models.Organization):
+            data['organization'] = organization.id
+        print(data)
+        res = self.post(url, data=data)
+        return res
 
     def get_tasks(self, task_ids=[]):
         url = "tasks/"
@@ -205,7 +216,7 @@ class LinalgoClient:
 
     def get_task(self, task_id, verbose=False, lazy=False):
         task_url = "{}/{}/{}/".format(
-            self.api_url, self.endpoints['task'], task_id)
+            self.api_url, self.endpoints['tasks'], task_id)
         if verbose:
             print(f'Retrivieving task with id {task_id}...')
         task_json = self.get(task_url)
@@ -270,7 +281,7 @@ class LinalgoClient:
         return annotator
 
     def add_annotators_to_task(self, annotators, task):
-        endpoint = self.endpoints['task']
+        endpoint = self.endpoints['tasks']
         url = f"{self.api_url}/{endpoint}/{task.id}/add_annotators/"
         payload = [annotator.id for annotator in annotators]
         return self.post(url, json=payload)
@@ -333,9 +344,9 @@ class LinalgoClient:
         url = f"{self.api_url}/corpora/{corpus.id}/add_document/"
         payload = DocumentSerializer(doc).serialize()
         return self.post(url, data=payload)
-    
+
     def complete_document(self, doc, task):
-        endpoint = self.endpoints['task']
+        endpoint = self.endpoints['tasks']
         url = f"{self.api_url}/{endpoint}/{task.id}/complete_document/"
         return self.post(url, data={'document': doc.id})
 

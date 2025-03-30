@@ -6,7 +6,7 @@ from typing import Dict, Iterable, List, Union
 import json
 import uuid
 
-from linalgo.annotate.bouding_box import BoundingBox, Vertex
+from linalgo.annotate.bounding_box import BoundingBox, Vertex
 
 
 Selector = Union[BoundingBox]
@@ -195,7 +195,7 @@ class FromIdFactoryMixin:
     def factory(cls, arg):
         """The factory returning the unique object based on the id."""
         if arg is None:
-            return cls(unique_id='default')
+            return cls(unique_id=str(uuid.uuid4()))
         if isinstance(arg, cls):
             return arg
         if isinstance(arg, str):
@@ -440,7 +440,7 @@ class Annotator(RegistryMixin, FromIdFactoryMixin, AnnotatorFactory):
         return annotation
 
 
-class CorpusFactory:
+class CorpusFactory(FromIdFactoryMixin):
     """A factory class to create ref::`Corpus` objects from different formats."""
 
     @staticmethod
@@ -453,7 +453,7 @@ class CorpusFactory:
         )
 
 
-class Corpus(RegistryMixin, FromIdFactoryMixin, CorpusFactory):
+class Corpus(RegistryMixin, CorpusFactory):
     """A Corpus is a collection of documents.
 
     Parameters
@@ -478,14 +478,21 @@ class Corpus(RegistryMixin, FromIdFactoryMixin, CorpusFactory):
         if documents is None:
             documents = set()
         self.documents = self.get(
-            'documents', [Document.factory(d) for d in documents])
+            'documents', [Document.factory(d, corpus=self) for d in documents])
 
     def __repr__(self):
         return f'Corpus::{self.name or self.id}'
 
 
-class DocumentFactory:
+class DocumentFactory(FromIdFactoryMixin):
     """A factory class to create ref::`Document` objects from different formats."""
+
+    @classmethod
+    def factory(cls, arg, **kwargs):
+        instance = super().factory(arg)
+        if 'corpus' in kwargs:
+            instance.corpus = kwargs['corpus']
+        return instance
 
     @staticmethod
     def from_dict(d):
@@ -508,7 +515,7 @@ class DocumentFactory:
         )
 
 
-class Document(RegistryMixin, FromIdFactoryMixin, DocumentFactory):
+class Document(RegistryMixin, DocumentFactory):
     """A Document is the base object that will receive annotations.
 
     Parameters
@@ -539,7 +546,7 @@ class Document(RegistryMixin, FromIdFactoryMixin, DocumentFactory):
         return list(set(a.entity for a in self.annotations))
 
     def __hash__(self):
-        return self.id
+        return hash(self.id)
 
     def __repr__(self):
         return f'Document::{self.id}'
@@ -582,7 +589,7 @@ class Entity(RegistryMixin, FromIdFactoryMixin, EntityFactory):
         return f'Entity::{self.name or self.id}'
 
 
-class TaskFactory:
+class TaskFactory(FromIdFactoryMixin):
     """A factory class to create Task objects from different formats."""
 
     @staticmethod
@@ -598,7 +605,7 @@ class TaskFactory:
         )
 
 
-class Task(RegistryMixin, FromIdFactoryMixin, TaskFactory):
+class Task(RegistryMixin, TaskFactory):
     """Creates a Task object.
 
     A `Task` contains is the main entry point for a project and has information
@@ -631,6 +638,9 @@ class Task(RegistryMixin, FromIdFactoryMixin, TaskFactory):
         annotators: List[Annotator] = None,
         documents: List[Document] = None,
         annotations: Iterable[Annotation] = None,
+        is_private: bool = True,
+        task_type: str = 'custom',
+        labelling_app_url: str = None,
         **kwargs  # pylint: disable=unused-argument
     ):
         if entities is None:
@@ -640,7 +650,7 @@ class Task(RegistryMixin, FromIdFactoryMixin, TaskFactory):
         if annotators is None:
             annotators = []
         if documents is None:
-            documents = []
+            documents = set()
         if annotations is None:
             annotations = []
         self.name = self.get('name', name)
@@ -652,9 +662,12 @@ class Task(RegistryMixin, FromIdFactoryMixin, TaskFactory):
         self.annotators = self.get(
             'annotators', [Annotator.factory(a) for a in annotators])
         self.annotations = self.get(
-            'annotations', [Annotation.factory(a) for a in annotations])
+            'annotations', set(Annotation.factory(a) for a in annotations))
         self.documents = self.get(
-            'documents', [Document.factory(d) for d in documents])
+            'documents', set(Document.factory(d) for d in documents))
+        self.is_private = is_private
+        self.task_type  = task_type
+        self.labelling_app_url = labelling_app_url
 
     def __repr__(self):
         return f'Task::{str(self.id)}'
