@@ -1,6 +1,6 @@
 [project]
 name = "linalgo"
-version = "0.1.2"
+version = "0.1.3"
 description = "W3C Data Annotation for Natual Language Processing and Machine Leaning in Python."
 readme = "README.md"
 authors = [

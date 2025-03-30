@@ -21,7 +21,7 @@ class TestTransformers(unittest.TestCase):
         Annotation(body="x", document=doc, annotator='A3', start=7, end=9),
         Annotation(body="x", document=doc, annotator='A3', start=11, end=13),
         Annotation(body="x", document=doc, annotator='A3', start=15, end=18),
-        
+
     ]
 
     def test_sequence_to_sequence(self):
@@ -31,10 +31,9 @@ class TestTransformers(unittest.TestCase):
             for token in text.split():
                 yield idx, token
                 idx += len(token) + 1
-                
+
         task = Task(name="test")
-        task.documents.append(self.doc)
-        task.annotations.append(self.annotations)
+        task.documents.add(self.doc)
         t = Sequence2SequenceTransformer(tokenize_fn=tokenize)
         in_seqs, out_seqs = t.transform(task)
         self.assertEqual(in_seqs, [self.doc.content.split()])
