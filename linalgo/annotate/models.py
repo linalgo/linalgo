@@ -412,16 +412,16 @@ class Annotator(RegistryMixin, FromIdFactoryMixin, AnnotatorFactory):
     def _get_annotation(self, document):
         score = self.model.decision_function([document.content])[0]
         if score >= self.threshold:
-            label = self.entity_id
+            label = self.entity
         else:
             label = 1  # Viewed
         annotation = Annotation(
-            entity_id=label,
+            entity=label,
             score=score,
             text=document.content,
-            annotator=self.id,
-            task_id=self.task.id,
-            document_id=document.id
+            annotator=self,
+            task=self.task,
+            document=document
         )
         return annotation
 
@@ -628,7 +628,7 @@ class Task(RegistryMixin, TaskFactory):
     annotations: Iterable[Annotation]
         The annotations that are being annotated
     """
-
+    # pylint: disable=too-many-instance-attributes,disable=unused-argument
     def __init__(
         self,
         name: str = None,
@@ -641,7 +641,7 @@ class Task(RegistryMixin, TaskFactory):
         is_private: bool = True,
         task_type: str = 'custom',
         labelling_app_url: str = None,
-        **kwargs  # pylint: disable=unused-argument
+        **kwargs
     ):
         if entities is None:
             entities = []
