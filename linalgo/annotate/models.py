@@ -7,6 +7,7 @@ import json
 import uuid
 
 from linalgo.annotate.bounding_box import BoundingBox, Vertex
+from linalgo.annotate.utils import SoftDeleteSet
 
 
 Selector = Union[BoundingBox]
@@ -94,7 +95,7 @@ class TargetFactory:
         if isinstance(data, Target):
             return data
         if isinstance(data, str):
-            d = json.loads(data.replace("\'", "\""))
+            d = json.loads(data.replace("\'", "\"").replace("None", "null"))
             return TargetFactory.from_dict(d)
         if isinstance(data, dict):
             return TargetFactory.from_dict(data)
@@ -356,7 +357,17 @@ class AnnotatorFactory:
         return Annotator(
             unique_id=d['id'],
             name=d['name'],
+            model=d['model'],
             owner=d['owner']
+        )
+
+    @staticmethod
+    def from_bq_row(row):
+        """Create an Annotator from a BigQuery row."""
+        return Annotator(
+            unique_id=row.id,
+            name=row.name,
+            model=row.model
         )
 
 
@@ -392,7 +403,7 @@ class Annotator(RegistryMixin, FromIdFactoryMixin, AnnotatorFactory):
         self.name = self.get('name', name)
         self.task = self.get('task', Task.factory(task))
         self.owner = self.get('owner', owner)
-        self.model = self.get('model', model or 'MACHINE')
+        self.model = self.get('model', model or '')
         self.entity = self.get('entity', entity)
         self.threshold = self.get('threshold', threshold)
 
@@ -476,9 +487,36 @@ class Corpus(RegistryMixin, CorpusFactory):
         self.name = self.get('name', name)
         self.description = self.get('description', description)
         if documents is None:
-            documents = set()
+            documents = SoftDeleteSet()
         self.documents = self.get(
-            'documents', [Document.factory(d, corpus=self) for d in documents])
+            'documents', SoftDeleteSet(Document.factory(d, corpus=self) for d in documents))
+
+    def add(self, documents: Union['Document', List['Document']]):
+        """Add documents to the corpus.
+
+        Parameters
+        ----------
+        documents: Union[Document, List[Document]]
+            A list of documents to add.
+        """
+        if isinstance(documents, Document):
+            documents = [documents]
+        for document in documents:
+            document.corpus = self
+            self.documents.add(document)
+
+    def remove(self, documents: Union['Document', List['Document']]):
+        """Remove documents from the corpus.
+
+        Parameters
+        ----------
+        documents: Union[Document, List[Document]]
+            A list of documents to remove.
+        """
+        if isinstance(documents, Document):
+            documents = [documents]
+        for document in documents:
+            self.documents.remove(document)
 
     def __repr__(self):
         return f'Corpus::{self.name or self.id}'
@@ -533,17 +571,33 @@ class Document(RegistryMixin, DocumentFactory):
         content: str = None,
         uri: str = None,
         corpus: Corpus = None,
+        auto_track=True,
         **kwargs  # pylint: disable=unused-argument
     ):
         self.uri = self.get('uri', uri)
         self.content = self.get('content', content)
         self.corpus = self.get('corpus', Corpus.factory(corpus))
-        self.annotations = self.get('annotations', set())
+        if auto_track:
+            self.corpus.add(self)
+        self.annotations = self.get('annotations', SoftDeleteSet())
 
     @property
     def entities(self):
         """Return the entities in the document."""
         return list(set(a.entity for a in self.annotations))
+
+    def remove(self, annotations: Union[Annotation, List[Annotation]]):
+        """Remove annotations from the document
+
+        Parameters
+        ----------
+        annotations: Iterable[Annotation]
+            A list of annotations to remove.
+        """
+        if isinstance(annotations, Annotation):
+            annotations = [annotations]
+        for annotation in annotations:
+            self.annotations.remove(annotation)
 
     def __hash__(self):
         return hash(self.id)
@@ -623,12 +677,13 @@ class Task(RegistryMixin, TaskFactory):
         The corpora that are being annotated
     annotators : List[Annotator]
         The annotators that are being used to annotate the corpora
-    documents : List[Document]
+    documents : SoftDeleteSet[Document]
         The documents that are being annotated
     annotations: Iterable[Annotation]
         The annotations that are being annotated
     """
     # pylint: disable=too-many-instance-attributes,disable=unused-argument
+
     def __init__(
         self,
         name: str = None,
@@ -636,7 +691,7 @@ class Task(RegistryMixin, TaskFactory):
         entities: List[Entity] = None,
         corpora: List[Corpus] = None,
         annotators: List[Annotator] = None,
-        documents: List[Document] = None,
+        documents: SoftDeleteSet[Document] = None,
         annotations: Iterable[Annotation] = None,
         is_private: bool = True,
         task_type: str = 'custom',
@@ -650,9 +705,9 @@ class Task(RegistryMixin, TaskFactory):
         if annotators is None:
             annotators = []
         if documents is None:
-            documents = set()
+            documents = SoftDeleteSet()
         if annotations is None:
-            annotations = []
+            annotations = SoftDeleteSet()
         self.name = self.get('name', name)
         self.description = self.get('description', description)
         self.entities = self.get(
@@ -662,11 +717,11 @@ class Task(RegistryMixin, TaskFactory):
         self.annotators = self.get(
             'annotators', [Annotator.factory(a) for a in annotators])
         self.annotations = self.get(
-            'annotations', set(Annotation.factory(a) for a in annotations))
+            'annotations', SoftDeleteSet(Annotation.factory(a) for a in annotations))
         self.documents = self.get(
-            'documents', set(Document.factory(d) for d in documents))
+            'documents', SoftDeleteSet(Document.factory(d) for d in documents))
         self.is_private = is_private
-        self.task_type  = task_type
+        self.task_type = task_type
         self.labelling_app_url = labelling_app_url
 
     def __repr__(self):

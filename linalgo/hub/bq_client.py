@@ -1,7 +1,8 @@
 """Retrieve annotated data from BigQuery."""
 from google.cloud import bigquery  # pylint: disable=import-error
 
-from linalgo.annotate.models import Annotation, Document
+from linalgo.annotate.models import Annotation, Annotator, Document, Task
+from linalgo.annotate.utils import SoftDeleteSet
 
 
 class BQClient:
@@ -38,7 +39,7 @@ class BQClient:
             'WHERE ltc.task_id = @task_id;'
         )
         rows = self._get_query_data(query)
-        return [Annotation.from_bq_row(row) for row in rows]
+        return SoftDeleteSet(Annotation.from_bq_row(row) for row in rows)
 
     def get_documents(self):
         """Retrieve all the documents for the task."""
@@ -51,7 +52,38 @@ class BQClient:
             'WHERE ltc.task_id = @task_id;'
         )
         rows = self._get_query_data(query)
-        return [Document.from_bq_row(row) for row in rows]
+        return SoftDeleteSet(Document.from_bq_row(row) for row in rows)
+
+    def get_annotators(self):
+        """Retrieve all the annotators of a task"""
+        prefix = "linalgo-infra.linhub_prod.public_"
+        query = (
+            'SELECT * '
+            f'FROM `{prefix}linhub_annotator` la '
+            f'JOIN `{prefix}linhub_task_annotators`lta on lta.annotator_id = la.id '
+            'WHERE lta.task_id = @task_id;'
+        )
+        rows = self._get_query_data(query)
+        return [Annotator.from_bq_row(row) for row in rows]
+
+    def get_task(self):
+        """Return a task from BigQuery."""
+        print("Fetching documents...", end='')
+        documents = self.get_documents()
+        print("OK.")
+        print("Fetching annotations...", end='')
+        annotations = self.get_annotations()
+        print("OK")
+        print("Fetching annotators...", end='')
+        annotators = self.get_annotators()
+        print("OK.")
+        return Task(
+            id=list(annotations)[0].task.id,
+            annotators=annotators,
+            documents=documents,
+            annotations=annotations,
+            corpora=set(doc.corpus for doc in documents)
+        )
 
 
 __all__ = ['BQClient']
