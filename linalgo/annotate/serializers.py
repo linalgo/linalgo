@@ -94,6 +94,7 @@ class TaskSerializer(Serializer):
         corpora = CorpusSerializer(instance.corpora).serialize()
 
         return {
+            'id': instance.id,
             'name': instance.name,
             'description': instance.description,
             'entities': entities,

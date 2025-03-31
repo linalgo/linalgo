@@ -16,10 +16,12 @@ from linalgo.annotate.models import (
 from linalgo.annotate import models, serializers
 from linalgo.annotate.serializers import AnnotationSerializer, \
     EntitySerializer, DocumentSerializer, TaskSerializer
+from linalgo.annotate.utils import SoftDeleteSet
 
 
 class Error400(Exception):
     """400 error."""
+
 
 class AssignmentType(Enum):
     REVIEW = 'R'
@@ -72,7 +74,8 @@ class LinalgoClient:
 
     def post(self, url, data=None, files=None, json=None):
         headers = {'Authorization': f"Token {self.access_token}"}
-        res = requests.post(url, data=data, json=json, files=files, headers=headers)
+        res = requests.post(url, data=data, json=json,
+                            files=files, headers=headers)
         if 200 <= res.status_code < 300:
             return res
         if res.status_code == 401:
@@ -144,12 +147,13 @@ class LinalgoClient:
             url = f"{self.api_url}/{self.endpoints['documents']}/import_documents/"
             serializer = serializers.DocumentSerializer(documents)
             f = io.StringIO()
-            keys = ['id', 'uri', 'content','corpus_id']
+            keys = ['id', 'uri', 'content', 'corpus_id']
             writer = csv.DictWriter(f, keys)
             writer.writeheader()
             writer.writerows(serializer.serialize())
             csv_content = f.getvalue()
-            files = {'fileKey': ('data.csv', csv_content.encode('utf-8'), 'text/csv')}
+            files = {'fileKey': (
+                'data.csv', csv_content.encode('utf-8'), 'text/csv')}
             res = self.post(url, files=files)
             if self.verbose:
                 print("OK.")
@@ -161,7 +165,6 @@ class LinalgoClient:
     def get_next_document(self, task_id: str):
         url = f"{self.api_url}/tasks/{task_id}/next_document/"
         return Document(**self.get(url))
-
 
     def get_corpora(self):
         res = self.get(self.endpoints['corpora'])
@@ -218,7 +221,6 @@ class LinalgoClient:
                 print(f"failed. ({e})")
             return e
 
-
     def create_task(self, task: models.Task):
         url = f"{self.api_url}/{self.endpoints['tasks']}/"
         data = TaskSerializer(task).serialize()
@@ -236,9 +238,11 @@ class LinalgoClient:
         try:
             if self.verbose:
                 print(f"Creating {task}...", end=' ')
-            res = self.post(url, data=data)
+                print(data)
+            res = self.post(url, json=data)
             if self.verbose:
                 print("OK.")
+                print(res.status_code)
             return Task(**res.json())
         except Error400 as e:
             if self.verbose:
@@ -266,15 +270,14 @@ class LinalgoClient:
         api_url = "{}/{}/".format(
             self.api_url, self.endpoints['documents-export'])
         records = self.request_csv(api_url, query_params)
-        data = [Document.from_dict(row) for row in records]
+        data = SoftDeleteSet(Document.from_dict(row) for row in records)
         return data
 
     def get_task_annotations(self, task_id):
         query_params = {'task_id': task_id, 'output_format': 'zip'}
-        api_url = "{}/{}/".format(
-            self.api_url, self.endpoints['annotations-export'])
+        api_url = f"{self.api_url}/{self.endpoints['annotations-export']}/"
         records = self.request_csv(api_url, query_params)
-        data = [Annotation.from_dict(row) for row in records]
+        data = SoftDeleteSet(Annotation.from_dict(row) for row in records)
         return data
 
     def get_task(self, task_id, verbose=False, lazy=False):
@@ -403,6 +406,11 @@ class LinalgoClient:
             next_url = res['next']
             schedules.extend(Schedule(**s) for s in res['results'])
         return schedules
+
+    def add_corpora(self, corpora: List[Corpus], task: Task):
+        url = f"{self.api_url}/tasks/{task.id}/add_corpora/"
+        payload = [{'id': corpus.id} for corpus in corpora]
+        return self.post(url, json=payload)
 
     def add_document(self, doc: Document, corpus: Corpus):
         url = f"{self.api_url}/corpora/{corpus.id}/add_document/"

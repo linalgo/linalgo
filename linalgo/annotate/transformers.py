@@ -1,17 +1,117 @@
 # pylint: disable=too-few-public-methods
 """A collection of classes to transform an annotation task into as ML task"""
+from abc import ABC, abstractmethod
 from typing import List, Iterable, Union
 from collections import Counter
 
 from .models import Document, Entity, Task
+from .utils import SoftDeleteSet
 
 
-class Transformer:
+class Transformer(ABC):
     """A helper class to transform an annotation task into an ML task."""
 
+    @abstractmethod
     def transform(self, task: Task):
         """The actual transformation."""
         raise NotImplementedError()
+
+
+class Pipeline:
+    """Chain several `Transformer` together.
+
+    Attributes
+    ----------
+    transformers: List[Transformer]
+        A list of transformers to chain together
+    """
+
+    def __init__(self, transformers: List[Transformer]):
+        self.transformers = transformers
+
+    def transform(self, task: Union[Task, List[Document]]):
+        """Chain transformers one after another
+
+        Parameters
+        ----------
+        task : Union[Task, List[Document]]
+            The task/documents to transform.
+
+        Returns
+        -------
+        task: Union[Task, List[Document]]
+            The transformed task/documents.
+        """
+        for transformer in self.transformers:
+            task = transformer.transform(task)
+        return task
+
+
+class Filter(Transformer):
+    """Filter annotations from a Task or Document.
+
+    The annotations filtered out are not really deleted but rather they are
+    marked with a `deleted = True` attribute.
+
+    Attributes
+    ----------
+    include_fn: Callable[Union[Task, Document], Union[Task | Document]]
+        A function specifying which annotations to keep.
+    exclude: Callable[Task, Task]
+        A function specifying which annotations to filter out.
+    """
+
+    def __init__(
+        self,
+        include_annotation_fn=None,
+        exclude_annotation_fn=None,
+        include_document_fn=None,
+        exclude_document_fn=None
+    ):
+        self.include_annotation_fn = include_annotation_fn
+        self.exclude_annotation_fn = exclude_annotation_fn
+        self.include_document_fn = include_document_fn
+        self.exclude_document_fn = exclude_document_fn
+
+    def transform(self, task: Task):
+        """Filter annotations from a Task or Document.
+
+        Parameters
+        ----------
+        task : Union[Task, Document, List[Document]]
+            The task/documents to filter.
+
+        Returns
+        -------
+        task: Union[Task, SoftDeleteSet[Document]]
+            The filtered task/documents.
+        """
+        if isinstance(task, Task):
+            documents = task.documents
+        elif isinstance(task, Document):
+            documents = SoftDeleteSet(task)
+        elif hasattr(task, '__len__'):
+            print(type(task))
+            documents = SoftDeleteSet(task)
+        else:
+            raise ValueError(f"{type(task)} is not supported")
+        for doc in documents:
+            if ((self.exclude_document_fn is not None) and
+                    self.exclude_document_fn(doc)):
+                documents.remove(doc)
+                doc.corpus.remove(doc)
+            if ((self.include_document_fn is not None) and
+                    (not self.include_document_fn(doc))):
+                documents.remove(doc)
+                doc.corpus.remove(doc)
+            for a in doc.annotations:
+                if ((self.exclude_annotation_fn is not None) and
+                        self.exclude_annotation_fn(a)):
+                    a.document.remove(a)
+                if ((self.include_annotation_fn is not None) and
+                        (not self.include_annotation_fn(a))):
+                    a.document.remove(a)
+        return task
 
 
 class BinaryTransformer(Transformer):
@@ -141,7 +241,7 @@ class Sequence2SequenceTransformer(Transformer):
     Attributes
     ----------
     tokenizer: Tokenizer
-        The tokenizer to use to split the content of each documents into a 
+        The tokenizer to use to split the content of each documents into a
         sequence of tokens.
     strategy: str, {"all", "majority"}
         The strategy to use for label creation.
@@ -202,6 +302,8 @@ class Sequence2SequenceTransformer(Transformer):
                 start, end = idx, idx + len(token) - 1
                 labels = []
                 for a in doc.annotations:
+                    if hasattr(a, 'deleted') and a.deleted:
+                        continue
                     contains_start = a.start <= start <= a.end - 1
                     contains_end = a.start <= end <= a.end - 1
                     if contains_start or contains_end:
@@ -224,6 +326,8 @@ class Sequence2SequenceTransformer(Transformer):
 
 __all__ = [
     'Transformer',
+    'Filter',
+    'Pipeline',
     'BinaryTransformer',
     'MultiClassTransformer',
     'MultiLabelTransformer',
