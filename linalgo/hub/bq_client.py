@@ -1,7 +1,8 @@
 """Retrieve annotated data from BigQuery."""
 from google.cloud import bigquery  # pylint: disable=import-error
 
-from linalgo.annotate.models import Annotation, Annotator, Document, Task
+from linalgo.annotate.models import Annotation, Annotator, Corpus, Document,\
+    Task
 from linalgo.annotate.utils import SoftDeleteSet
 
 
@@ -28,7 +29,7 @@ class BQClient:
         job = self.client.query(query, job_config=job_config)
         return job.result()
 
-    def get_annotations(self):
+    def get_annotations(self, include_machine=False):
         """Retrieve all the annotations for the task."""
         prefix = "linalgo-infra.linhub_prod.public_"
         query = (
@@ -36,8 +37,12 @@ class BQClient:
             f'FROM `{prefix}linhub_corpus` lc '
             f'JOIN `{prefix}linhub_task_corpora` ltc ON ltc.corpus_id = lc.id '
             f'LEFT JOIN `{prefix}linhub_annotation` la ON la.task_id = ltc.task_id '
-            'WHERE ltc.task_id = @task_id;'
+            f'LEFT JOIN `{prefix}linhub_annotator` laa ON laa.id = la.annotator_id '
         )
+        if include_machine:
+            query += "WHERE ltc.task_id = @task_id;"
+        else:
+            query += "WHERE ltc.task_id = @task_id and laa.model != 'MACHINE';"
         rows = self._get_query_data(query)
         return SoftDeleteSet(Annotation.from_bq_row(row) for row in rows)
 
@@ -54,6 +59,18 @@ class BQClient:
         rows = self._get_query_data(query)
         return SoftDeleteSet(Document.from_bq_row(row) for row in rows)
 
+    def get_corpora(self):
+        """Retrieve all the corpora in the task."""
+        prefix = "linalgo-infra.linhub_prod.public_"
+        query = (
+            'SELECT lc.* '
+            f'FROM `{prefix}linhub_corpus` lc '
+            f'JOIN `{prefix}linhub_task_corpora` ltc ON ltc.corpus_id = lc.id '
+            'WHERE ltc.task_id = @task_id;'
+        )
+        rows = self._get_query_data(query)
+        return [Corpus.from_bq_row(row) for row in rows]
+
     def get_annotators(self):
         """Retrieve all the annotators of a task"""
         prefix = "linalgo-infra.linhub_prod.public_"
@@ -68,6 +85,9 @@ class BQClient:
 
     def get_task(self):
         """Return a task from BigQuery."""
+        print("Fetching corpora...", end=' ')
+        corpora = self.get_corpora()
+        print("OK.")
         print("Fetching documents...", end='')
         documents = self.get_documents()
         print("OK.")
@@ -77,12 +97,13 @@ class BQClient:
         print("Fetching annotators...", end='')
         annotators = self.get_annotators()
         print("OK.")
+
         return Task(
             id=list(annotations)[0].task.id,
             annotators=annotators,
             documents=documents,
             annotations=annotations,
-            corpora=set(doc.corpus for doc in documents)
+            corpora=corpora
         )
 
 
