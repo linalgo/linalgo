@@ -17,9 +17,24 @@ The documentation is available at [https://linalgo.github.io/linalgo](https://li
 
 ## Installation 
 
+Basic installation:
 ```
 pip install linalgo
 ```
+
+To use the annotation server functionality:
+```
+pip install "linalgo[hub]"
+```
+
+## Running the Annotation Server
+
+After installing with the hub extras, you can run a local annotation server using:
+```
+linalgo hub runserver
+```
+
+This will start a local Django server that you can use for annotation tasks.
 
 ## Test
 

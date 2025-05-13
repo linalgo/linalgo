@@ -83,6 +83,7 @@ class LinalgoClient:
         elif res.status_code == 404:
             raise Exception(f"{url} not found.")
         elif 400 <= res.status_code < 500:
+            print(res, res._content)
             raise Error400(res.json())
         else:
             raise Exception(

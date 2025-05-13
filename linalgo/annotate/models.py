@@ -463,6 +463,15 @@ class CorpusFactory(FromIdFactoryMixin):
             description=d['description'],
         )
 
+    @staticmethod
+    def from_bq_row(row):
+        """Creates a Corpus from a dictionary."""
+        return Corpus(
+            unique_id=row.id,
+            name=row.name,
+            description=row.description,
+        )
+
 
 class Corpus(RegistryMixin, CorpusFactory):
     """A Corpus is a collection of documents.

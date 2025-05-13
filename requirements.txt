@@ -5,3 +5,4 @@ numpy
 pillow
 python-dateutil
 requests
+typer>=0.9.0
