@@ -1,7 +1,7 @@
 """Command line utilities."""
-import typer
 import sys
 import subprocess
+import typer
 
 app = typer.Typer()
 hub_app = typer.Typer()
@@ -11,8 +11,7 @@ app.add_typer(hub_app, name="hub")
 def runserver():
     """Launch the annotation server locally."""
     try:
-        # Check if linhub is installed
-        import linhub
+        import linhub  # pylint: disable=import-outside-toplevel,unused-import
     except ImportError:
         print("Error: linalgo[hub] is not installed. Please install it using:")
         print("pip install linalgo[hub]")
