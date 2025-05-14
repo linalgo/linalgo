@@ -1,10 +1,13 @@
+# pylint: disable=consider-using-with,import-outside-toplevel
 """Command line utilities."""
-import typer
-import sys
 import subprocess
-from . import config
-import requests
+import sys
 import time
+
+import requests
+import typer
+
+from . import config
 
 app = typer.Typer(help="Linalgo CLI", no_args_is_help=True)
 config_app = typer.Typer(help="Configuration commands", no_args_is_help=True)
@@ -14,9 +17,8 @@ app.add_typer(config_app, name="config")
 app.add_typer(hub_app, name="hub")
 
 
-@app.command()
-def login(username: str = None, password: str = None):
-    """Login to the Linalgo hub and save authentication token."""
+def _get_user_credentials(username=None, password=None):
+    """Get username and password from user or config."""
     # Get the server URL from config or prompt
     server_url = config.get_config('hub.server_url')
     if not server_url:
@@ -39,65 +41,84 @@ def login(username: str = None, password: str = None):
     if not password:
         password = typer.prompt("Password", hide_input=True)
 
+    return server_url, username, password
+
+
+def _handle_organizations(client):
+    """Handle organization selection and save to config."""
+    orgs = client.get_organizations()
+    if not orgs or len(orgs) == 0:
+        typer.echo("No organizations found.")
+        return False
+
+    # Default to first org
+    org = orgs[0]
+
+    # Let user select an organization if there are multiple
+    if len(orgs) > 1:
+        typer.echo("\nAvailable organizations:")
+        for i, org in enumerate(orgs):
+            typer.echo(f"{i+1}. {org['name']} (ID: {org['id']})")
+        org_choice = typer.prompt(
+            "Select organization number",
+            type=int,
+            default=1,
+            show_default=True
+        )
+        org = orgs[org_choice-1]
+
+    # Save organization info including UUID
+    config.set_config("hub.organization", org['id'])
+    config.set_config("hub.organization_name", org['name'])
+    typer.echo(f"Organization set to: {org['name']}")
+    return True
+
+
+@app.command()
+def login(username: str = None, password: str = None):
+    """Login to the Linalgo hub and save authentication token."""
+    server_url, username, password = _get_user_credentials(username, password)
+
     # Login to get token
     url = f"{server_url}/auth/token/login/"
     try:
         response = requests.post(
-            url, data={"username": username, "password": password})
+            url,
+            data={"username": username, "password": password},
+            timeout=30
+        )
 
-        if response.status_code == 200:
-            token_data = response.json()
-            if 'auth_token' in token_data:
-                token = token_data['auth_token']
-                # Save the token and username
-                config.set_config("hub.token", token)
-                config.set_config("hub.username", username)
-                typer.echo("Login successful! Token saved.")
-
-                # Get organization info
-                typer.echo("Fetching organization information...")
-                try:
-                    # Create a temporary client to get organization info
-                    from linalgo.hub.client import LinalgoClient
-                    client = LinalgoClient(token=token, api_url=server_url)
-
-                    # Get organizations
-                    orgs = client.get_organizations()
-                    if orgs and len(orgs) > 0:
-                        org = orgs[0]  # Default to first org
-                        if len(orgs) > 1:
-                            # Let user select an organization if there are multiple
-                            typer.echo("\nAvailable organizations:")
-                            for i, org in enumerate(orgs):
-                                typer.echo(
-                                    f"{i+1}. {org['name']} (ID: {org['id']})")
-                            org_choice = typer.prompt(
-                                "Select organization number",
-                                type=int,
-                                default=1,
-                                show_default=True
-                            )
-                            org = orgs[org_choice-1]
-
-                        # Save organization info including UUID
-                        config.set_config("hub.organization", org['id'])
-                        config.set_config(
-                            "hub.organization_name", org['name'])
-
-                        typer.echo(f"Organization set to: {org['name']}")
-                except Exception as e:
-                    typer.echo(
-                        f"Warning: Could not fetch organization info: {str(e)}", err=True)
-                return True
-            else:
-                typer.echo("Error: Unexpected response format", err=True)
-        else:
+        if response.status_code != 200:
             typer.echo(
                 f"Error: Login failed (HTTP {response.status_code})", err=True)
             if response.text:
                 typer.echo(f"Details: {response.text}", err=True)
-        return False
-    except Exception as e:
+            return False
+
+        token_data = response.json()
+        if 'auth_token' not in token_data:
+            typer.echo("Error: Unexpected response format", err=True)
+            return False
+
+        # Extract and save token
+        token = token_data['auth_token']
+        config.set_config("hub.token", token)
+        config.set_config("hub.username", username)
+        typer.echo("Login successful! Token saved.")
+
+        # Get organization info
+        typer.echo("Fetching organization information...")
+        try:
+            # Create a temporary client to get organization info
+            from linalgo.hub.client import LinalgoClient
+            client = LinalgoClient(token=token, api_url=server_url)
+            _handle_organizations(client)
+            return True
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            typer.echo(
+                f"Warning: Could not fetch organization info: {str(e)}", err=True)
+            return True
+    except Exception as e:  # pylint: disable=broad-exception-caught
         typer.echo(f"Error: {str(e)}", err=True)
         return False
 
@@ -105,18 +126,35 @@ def login(username: str = None, password: str = None):
 def run_server_in_background():
     """Run the linhub server in the background."""
     try:
+        # Don't use 'with' here as we need to return the process for later termination
         process = subprocess.Popen(
-            ["linhub", "runserver"], 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE
+            ["linhub", "runserver"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            # Ensure the process runs in the background
+            start_new_session=True
         )
+        # Give the process a moment to start
+        time.sleep(0.5)
+        # Make sure the process is still running
+        if process.poll() is not None:
+            exit_code = process.returncode
+            typer.echo(
+                f"Server process exited with code {exit_code}", err=True)
+            stdout, stderr = process.communicate()
+            if stdout:
+                typer.echo(
+                    f"Server output: {stdout.decode('utf-8')}", err=True)
+            if stderr:
+                typer.echo(f"Server error: {stderr.decode('utf-8')}", err=True)
+            return None
         return process
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         typer.echo(f"Error starting server: {e}", err=True)
         return None
 
 
-def wait_for_server(max_attempts=5, delay=5):
+def wait_for_server(max_attempts=10, delay=2):
     """Wait for the server to be ready."""
     server_url = "http://localhost:8000"
 
@@ -128,8 +166,8 @@ def wait_for_server(max_attempts=5, delay=5):
             if response.status_code == 200:
                 typer.echo("Server is ready!")
                 return True
-        except requests.RequestException as e:
-            # typer.echo(f"Error waiting for server: {e}", err=True)
+        except requests.RequestException:
+            # We expect connection errors until the server is ready
             pass
 
         time.sleep(delay)
@@ -139,12 +177,66 @@ def wait_for_server(max_attempts=5, delay=5):
     return False
 
 
+def _setup_local_server(username, org_name, password):
+    """Set up and initialize local hub server."""
+    typer.echo("\nInitializing local hub server...")
+    try:
+        init_cmd = [
+            "linhub", "init",
+            "--username", username,
+            "--org-name", org_name,
+            "--password", password
+        ]
+        subprocess.run(init_cmd, check=True)
+
+        # Start the server in the background
+        typer.echo("\nStarting the server...")
+        server_process = run_server_in_background()
+        if not server_process:
+            typer.echo("Failed to start server. Please check if linhub is "
+                       "installed correctly.", err=True)
+            return False
+
+        server_ready = wait_for_server()
+        if not server_ready:
+            typer.echo(
+                "Server started but did not become ready. Stopping server...", err=True)
+            server_process.terminate()
+            return False
+
+        typer.echo("\nAttempting to login to local server...")
+        if login(username=username, password=password):
+            typer.echo("Login successful!")
+        else:
+            typer.echo(
+                "Login failed. You can try again later with 'linalgo login'")
+
+        typer.echo("\nStopping server...")
+        # Make sure to terminate the process properly
+        server_process.terminate()
+        try:
+            server_process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            # If it doesn't terminate gracefully, kill it
+            server_process.kill()
+
+        typer.echo("Server stopped.")
+        typer.echo(
+            "Initialization complete! You can start the server again "
+            "with 'linalgo hub runserver'")
+        return True
+
+    except subprocess.CalledProcessError as e:
+        typer.echo(f"Error initializing local hub server: {e}", err=True)
+        return False
+
+
 @app.command()
 def init():
     """Initialize linalgo configuration with interactive prompts."""
     try:
         # Check if linhub is installed
-        import linhub
+        __import__('linhub')
     except ImportError:
         print("Error: linalgo[hub] is not installed. Please install it using:")
         print("pip install linalgo[hub]")
@@ -174,40 +266,9 @@ def init():
 
     # If using localhost, run linhub init with username and org
     if server_url.startswith("http://localhost"):
-        typer.echo("\nInitializing local hub server...")
         try:
-            subprocess.run(
-                [
-                    "linhub", "init",
-                    "--username", username,
-                    "--org-name", org_name,
-                    "--password", password
-                ],
-                check=True
-            )
-
-            # Start the server in the background
-            typer.echo("\nStarting the server...")
-            server_process = run_server_in_background()
-
-            if server_process:
-                wait_for_server()
-                typer.echo("\nAttempting to login to local server...")
-                if login(username=username, password=password):
-                    typer.echo("Login successful!")
-                else:
-                    typer.echo(
-                        "Login failed. You can try again later with 'linalgo login'")
-
-                typer.echo("\nStopping server...")
-                server_process.terminate()
-                typer.echo("Server stopped.")
-                typer.echo("Initialization complete! You can start the server again with 'linalgo hub runserver'")
-
-        except subprocess.CalledProcessError as e:
-            typer.echo(f"Error initializing local hub server: {e}", err=True)
-            sys.exit(1)
-
+            if not _setup_local_server(username, org_name, password):
+                sys.exit(1)
         except KeyboardInterrupt:
             typer.echo("\nSetup interrupted by user.")
             sys.exit(0)
@@ -216,7 +277,7 @@ def init():
 def check_linhub_installed():
     """Check if linhub is installed."""
     try:
-        import linhub
+        __import__('linhub')
         return True
     except ImportError:
         typer.echo(
@@ -239,8 +300,15 @@ def hub_callback(ctx: typer.Context):
             sys.exit(1)
 
 
-@hub_app.command(name="", hidden=True, context_settings={"ignore_unknown_options": True, "allow_extra_args": True})
-def hub_passthrough(ctx: typer.Context):
+@hub_app.command(
+    name="",
+    hidden=True,
+    context_settings={
+        "ignore_unknown_options": True,
+        "allow_extra_args": True
+    }
+)
+def hub_passthrough(ctx: typer.Context):  # pylint: disable=unused-argument
     """Pass all commands and arguments to linhub."""
     if not check_linhub_installed():
         sys.exit(1)
@@ -257,7 +325,6 @@ def hub_passthrough(ctx: typer.Context):
 @config_app.callback()
 def config_callback():
     """Commands for managing configuration."""
-    pass
 
 
 @config_app.command()
@@ -283,12 +350,12 @@ def get(key: str):
 
 
 @config_app.command()
-def set(key: str, value: str):
+def config_set(key: str, value: str):
     """Set a configuration value."""
     try:
         config.set_config(key, value)
         print(f"Set {key} = {value}")
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Error setting configuration: {e}")
         sys.exit(1)
 
@@ -297,9 +364,14 @@ def set(key: str, value: str):
 def load(env_file: str = ".env"):
     """Load configuration from .env file."""
     try:
-        config.load_env_file(env_file)
-        print(f"Configuration loaded from {env_file}")
-    except Exception as e:
+        # Check if function exists before calling
+        if hasattr(config, 'load_env_file'):
+            config.load_env_file(env_file)
+            print(f"Configuration loaded from {env_file}")
+        else:
+            print("Error: load_env_file function not available in config module")
+            sys.exit(1)
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Error loading configuration: {e}")
         sys.exit(1)
 
