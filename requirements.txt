@@ -5,3 +5,5 @@ numpy
 pillow
 python-dateutil
 requests
+typer==0.15.3
+click==8.1.3

@@ -91,7 +91,6 @@ class Filter(Transformer):
         elif isinstance(task, Document):
             documents = SoftDeleteSet(task)
         elif hasattr(task, '__len__'):
-            print(type(task))
             documents = SoftDeleteSet(task)
         else:
             raise ValueError(f"{type(task)} is not supported")

@@ -17,6 +17,7 @@ from linalgo.annotate import models, serializers
 from linalgo.annotate.serializers import AnnotationSerializer, \
     EntitySerializer, DocumentSerializer, TaskSerializer
 from linalgo.annotate.utils import SoftDeleteSet
+from linalgo.config import get_config
 
 
 class Error400(Exception):
@@ -54,10 +55,31 @@ class LinalgoClient:
         organization=None,
         verbose=True
     ):
-        url_default = 'http://localhost:8000/v1/'
-        self.api_url = api_url or os.getenv('LINHUB_URL', url_default)
-        self.access_token = token or os.getenv('LINHUB_TOKEN')
-        self.organization = organization or os.getenv('LINHUB_ORG')
+        url_default = 'http://localhost:8000/v1'
+        
+        # Check for configuration inconsistencies
+        env_url = os.getenv('LINHUB_URL')
+        config_url = get_config('hub.server_url')
+        if env_url and config_url and env_url != config_url:
+            warnings.warn("Warning: Environment variable LINHUB_URL "
+                          f"({env_url}) differs from config file ({config_url})")
+        
+        env_token = os.getenv('LINHUB_TOKEN')
+        config_token = get_config('hub.token')
+        if env_token and config_token and env_token != config_token:
+            warnings.warn("Warning: Environment variable LINHUB_TOKEN differs "
+                          "from config file")
+        
+        env_org = os.getenv('LINHUB_ORG')
+        config_org = get_config('hub.organization')
+        if env_org and config_org and env_org != config_org:
+            warnings.warn("Warning: Environment variable LINHUB_ORG "
+                          f"({env_org}) differs from config file ({config_org})")
+        
+        # Set client properties with precedence: explicit args > env vars > config file > defaults
+        self.api_url = api_url or os.getenv('LINHUB_URL') or get_config('hub.server_url', url_default)
+        self.access_token = token or os.getenv('LINHUB_TOKEN') or get_config('hub.token')
+        self.organization = organization or os.getenv('LINHUB_ORG') or get_config('hub.organization')
         self.verbose = verbose
 
     def get(self, url, query_params={}):
@@ -83,6 +105,7 @@ class LinalgoClient:
         elif res.status_code == 404:
             raise Exception(f"{url} not found.")
         elif 400 <= res.status_code < 500:
+            print(res, res._content)
             raise Error400(res.json())
         else:
             raise Exception(
